@@ -52,14 +52,17 @@
 /** Represents a */
 struct event_change {
 	/** The fd or signal whose events are to be changed */
+    /*待改变事件的描述符或信号量*/
 	evutil_socket_t fd;
 	/* The events that were enabled on the fd before any of these changes
 	   were made.  May include EV_READ or EV_WRITE. */
+    /*旧的事件集合*/
 	short old_events;
 
 	/* The changes that we want to make in reading and writing on this fd.
 	 * If this is a signal, then read_change has EV_CHANGE_SIGNAL set,
 	 * and write_change is unused. */
+    /*需要改变的事件类型*/
 	ev_uint8_t read_change;
 	ev_uint8_t write_change;
 };

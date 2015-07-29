@@ -57,14 +57,19 @@ extern "C" {
 #define EV_CLOSURE_PERSIST 2
 
 /** Structure to define the backend of a given event_base. */
+/*
+ *对于给定的 event_base 后端实现结构体
+ */
 struct eventop {
 	/** The name of this backend. */
+    /*该后端实现方式名称*/
 	const char *name;
 	/** Function to set up an event_base to use this backend.  It should
 	 * create a new structure holding whatever information is needed to
 	 * run the backend, and return it.  The returned pointer will get
 	 * stored by event_init into the event_base.evbase field.  On failure,
 	 * this function should return NULL. */
+    /*以该后端实现方式设置 event_base*/
 	void *(*init)(struct event_base *);
 	/** Enable reading/writing on a given fd or signal.  'events' will be
 	 * the events that we're trying to enable: one or more of EV_READ,
@@ -74,22 +79,28 @@ struct eventop {
 	 * fdinfo field below.  It will be set to 0 the first time the fd is
 	 * added.  The function should return 0 on success and -1 on error.
 	 */
+    /*添加指定事件*/
 	int (*add)(struct event_base *, evutil_socket_t fd, short old, short events, void *fdinfo);
 	/** As "add", except 'events' contains the events we mean to disable. */
+    /*删除指定事件*/
 	int (*del)(struct event_base *, evutil_socket_t fd, short old, short events, void *fdinfo);
 	/** Function to implement the core of an event loop.  It must see which
 	    added events are ready, and cause event_active to be called for each
 	    active event (usually via event_io_active or such).  It should
 	    return 0 on success and -1 on error.
 	 */
+    /*事件分发*/
 	int (*dispatch)(struct event_base *, struct timeval *);
 	/** Function to clean up and free our data from the event_base. */
+    /*析构函数，删除必要的内存*/
 	void (*dealloc)(struct event_base *);
 	/** Flag: set if we need to reinitialize the event base after we fork.
 	 */
+    /*标志位:当fork后是否需要重新init*/
 	int need_reinit;
 	/** Bit-array of supported event_method_features that this backend can
 	 * provide. */
+    /*后端位置，设置该后端支持的特性*/
 	enum event_method_feature features;
 	/** Length of the extra information we should record for each fd that
 	    has one or more active events.  This information is recorded
@@ -170,8 +181,10 @@ extern int _event_debug_mode_on;
 struct event_base {
 	/** Function pointers and other data to describe this event_base's
 	 * backend. */
+    /*后端实现方式结构体指针*/
 	const struct eventop *evsel;
 	/** Pointer to backend-specific data. */
+    /*指向后端实现方式特有的数据指针*/
 	void *evbase;
 
 	/** List of changes to tell backend about at next dispatch.  Only used

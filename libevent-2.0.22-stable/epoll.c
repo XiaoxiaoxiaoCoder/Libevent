@@ -54,9 +54,9 @@
 #include "changelist-internal.h"
 
 struct epollop {
-	struct epoll_event *events;
-	int nevents;
-	int epfd;
+	struct epoll_event *events;     //事件对象
+	int nevents;                    //事件个数
+	int epfd;                       //epoll 描述符
 };
 
 static void *epoll_init(struct event_base *);
@@ -104,6 +104,9 @@ const struct eventop epollops = {
  */
 #define MAX_EPOLL_TIMEOUT_MSEC (35*60*1000)
 
+/*
+ * 初始化 epoll
+ */
 static void *
 epoll_init(struct event_base *base)
 {
@@ -120,6 +123,7 @@ epoll_init(struct event_base *base)
 
 	evutil_make_socket_closeonexec(epfd);
 
+    /*分配 epollop 对象内存*/
 	if (!(epollop = mm_calloc(1, sizeof(struct epollop)))) {
 		close(epfd);
 		return (NULL);
@@ -128,6 +132,7 @@ epoll_init(struct event_base *base)
 	epollop->epfd = epfd;
 
 	/* Initialize fields */
+    /*初始化事件个数*/
 	epollop->events = mm_calloc(INITIAL_NEVENT, sizeof(struct epoll_event));
 	if (epollop->events == NULL) {
 		mm_free(epollop);
@@ -136,6 +141,7 @@ epoll_init(struct event_base *base)
 	}
 	epollop->nevents = INITIAL_NEVENT;
 
+    /*是否启用 CHANGELIST*/
 	if ((base->flags & EVENT_BASE_FLAG_EPOLL_USE_CHANGELIST) != 0 ||
 	    ((base->flags & EVENT_BASE_FLAG_IGNORE_ENV) == 0 &&
 		evutil_getenv("EVENT_EPOLL_USE_CHANGELIST") != NULL))
@@ -146,6 +152,9 @@ epoll_init(struct event_base *base)
 	return (epollop);
 }
 
+/*
+ * 将事件变化类型转换成string字符串描述
+ */
 static const char *
 change_to_string(int change)
 {
@@ -161,6 +170,9 @@ change_to_string(int change)
 	}
 }
 
+/*
+ * 将事件操作类型转换成string字符串描述
+ */
 static const char *
 epoll_op_to_string(int op)
 {
@@ -170,6 +182,9 @@ epoll_op_to_string(int op)
 	    "???";
 }
 
+/*
+ * 添加一个事件改变至事件集合中
+ */
 static int
 epoll_apply_one_change(struct event_base *base,
     struct epollop *epollop,
@@ -192,7 +207,7 @@ epoll_apply_one_change(struct event_base *base,
 		/* TODO: Turn this into a switch or a table lookup. */
 
 		if ((ch->read_change & EV_CHANGE_ADD) ||
-		    (ch->write_change & EV_CHANGE_ADD)) {
+		    (ch->write_change & EV_CHANGE_ADD)) {                   //添加事件
 			/* If we are adding anything at all, we'll want to do
 			 * either an ADD or a MOD. */
 			events = 0;
@@ -232,26 +247,26 @@ epoll_apply_one_change(struct event_base *base,
 				op = EPOLL_CTL_MOD;
 			}
 		} else if ((ch->read_change & EV_CHANGE_DEL) ||
-		    (ch->write_change & EV_CHANGE_DEL)) {
+		    (ch->write_change & EV_CHANGE_DEL)) {                       //删除事件
 			/* If we're deleting anything, we'll want to do a MOD
 			 * or a DEL. */
 			op = EPOLL_CTL_DEL;
 
 			if (ch->read_change & EV_CHANGE_DEL) {
 				if (ch->write_change & EV_CHANGE_DEL) {
-					events = EPOLLIN|EPOLLOUT;
+					events = EPOLLIN|EPOLLOUT;                          //删除读写
 				} else if (ch->old_events & EV_WRITE) {
-					events = EPOLLOUT;
+					events = EPOLLOUT;                                  //更新为写事件
 					op = EPOLL_CTL_MOD;
 				} else {
-					events = EPOLLIN;
+					events = EPOLLIN;                                   //删除写事件
 				}
 			} else if (ch->write_change & EV_CHANGE_DEL) {
 				if (ch->old_events & EV_READ) {
-					events = EPOLLIN;
+					events = EPOLLIN;                                   //更新为读事件
 					op = EPOLL_CTL_MOD;
 				} else {
-					events = EPOLLOUT;
+					events = EPOLLOUT;                                  //删除写事件
 				}
 			}
 		}
@@ -262,8 +277,8 @@ epoll_apply_one_change(struct event_base *base,
 		memset(&epev, 0, sizeof(epev));
 		epev.data.fd = ch->fd;
 		epev.events = events;
-		if (epoll_ctl(epollop->epfd, op, ch->fd, &epev) == -1) {
-			if (op == EPOLL_CTL_MOD && errno == ENOENT) {
+		if (epoll_ctl(epollop->epfd, op, ch->fd, &epev) == -1) {        //更新事件
+			if (op == EPOLL_CTL_MOD && errno == ENOENT) {               //更新失败，再次尝试
 				/* If a MOD operation fails with ENOENT, the
 				 * fd was probably closed and re-opened.  We
 				 * should retry the operation as an ADD.
@@ -329,6 +344,9 @@ epoll_apply_one_change(struct event_base *base,
 	return 0;
 }
 
+/*
+ * 添加事件变化至事件分发集合中 使用 changelist
+ */
 static int
 epoll_apply_changes(struct event_base *base)
 {
@@ -348,6 +366,9 @@ epoll_apply_changes(struct event_base *base)
 	return (r);
 }
 
+/*
+ * 添加事件变化至事件集合中,不使用changelist
+ */
 static int
 epoll_nochangelist_add(struct event_base *base, evutil_socket_t fd,
     short old, short events, void *p)
@@ -366,6 +387,9 @@ epoll_nochangelist_add(struct event_base *base, evutil_socket_t fd,
 	return epoll_apply_one_change(base, base->evbase, &ch);
 }
 
+/*
+ * 从事件集合中删除事件
+ */
 static int
 epoll_nochangelist_del(struct event_base *base, evutil_socket_t fd,
     short old, short events, void *p)
@@ -382,6 +406,9 @@ epoll_nochangelist_del(struct event_base *base, evutil_socket_t fd,
 	return epoll_apply_one_change(base, base->evbase, &ch);
 }
 
+/*
+ * 事件分发
+ */
 static int
 epoll_dispatch(struct event_base *base, struct timeval *tv)
 {
@@ -404,7 +431,7 @@ epoll_dispatch(struct event_base *base, struct timeval *tv)
 
 	EVBASE_RELEASE_LOCK(base, th_base_lock);
 
-	res = epoll_wait(epollop->epfd, events, epollop->nevents, timeout);
+	res = epoll_wait(epollop->epfd, events, epollop->nevents, timeout);         //检测是否有事件到来
 
 	EVBASE_ACQUIRE_LOCK(base, th_base_lock);
 
@@ -420,6 +447,7 @@ epoll_dispatch(struct event_base *base, struct timeval *tv)
 	event_debug(("%s: epoll_wait reports %d", __func__, res));
 	EVUTIL_ASSERT(res <= epollop->nevents);
 
+    /*检测事件，并分发处理*/
 	for (i = 0; i < res; i++) {
 		int what = events[i].events;
 		short ev = 0;
@@ -439,6 +467,7 @@ epoll_dispatch(struct event_base *base, struct timeval *tv)
 		evmap_io_active(base, events[i].data.fd, ev | EV_ET);
 	}
 
+    /*事件集合大小是否需要扩容*/
 	if (res == epollop->nevents && epollop->nevents < MAX_NEVENT) {
 		/* We used all of the event space this time.  We should
 		   be ready for more events next time. */
@@ -457,6 +486,9 @@ epoll_dispatch(struct event_base *base, struct timeval *tv)
 }
 
 
+/*
+ * 后端实现为epoll时，释放相应的 base 内存
+ */
 static void
 epoll_dealloc(struct event_base *base)
 {
