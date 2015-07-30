@@ -428,6 +428,9 @@ update_time_cache(struct event_base *base)
 	    gettime(base, &base->tv_cache);
 }
 
+/*
+ * 按默认配置，初始化一个 event_base
+ */
 struct event_base *
 event_init(void)
 {
@@ -592,9 +595,9 @@ event_base_new_with_config(const struct event_config *cfg)
 		if (cfg != NULL) {
 			/* determine if this backend should be avoided */
 			if (event_config_is_avoided_method(cfg,
-				eventops[i]->name))
+				eventops[i]->name))                                     //是否为配置禁止的后端实现方式
 				continue;
-			if ((eventops[i]->features & cfg->require_features)
+			if ((eventops[i]->features & cfg->require_features)         //与要求的特性不符
 			    != cfg->require_features)
 				continue;
 		}
@@ -606,7 +609,7 @@ event_base_new_with_config(const struct event_config *cfg)
 
 		base->evsel = eventops[i];
 
-		base->evbase = base->evsel->init(base);
+		base->evbase = base->evsel->init(base);                         //初始化后端实现方式
 	}
 
 	if (base->evbase == NULL) {
@@ -1545,16 +1548,22 @@ event_base_got_exit(struct event_base *event_base)
 
 /* not thread safe */
 
+/*
+ * 事件循环主函数
+ */
 int
 event_loop(int flags)
 {
 	return event_base_loop(current_base, flags);
 }
 
+/*
+ * 事件循环具体实现函数
+ */
 int
 event_base_loop(struct event_base *base, int flags)
 {
-	const struct eventop *evsel = base->evsel;
+	const struct eventop *evsel = base->evsel;                                  //后端具体实现方式
 	struct timeval tv;
 	struct timeval *tv_p;
 	int res, done, retval = 0;
@@ -1563,6 +1572,7 @@ event_base_loop(struct event_base *base, int flags)
 	 * as we invoke user callbacks. */
 	EVBASE_ACQUIRE_LOCK(base, th_base_lock);
 
+    /*已经在跑事件循环了*/
 	if (base->running_loop) {
 		event_warnx("%s: reentrant invocation.  Only one event_base_loop"
 		    " can run on each event_base at once.", __func__);
@@ -1611,6 +1621,7 @@ event_base_loop(struct event_base *base, int flags)
 		}
 
 		/* If we have no events, we just exit */
+        /*没有注册的事件，直接退出循环*/
 		if (!event_haveevents(base) && !N_ACTIVE_CALLBACKS(base)) {
 			event_debug(("%s: no events registered.", __func__));
 			retval = 1;
@@ -1622,7 +1633,7 @@ event_base_loop(struct event_base *base, int flags)
 
 		clear_time_cache(base);
 
-		res = evsel->dispatch(base, tv_p);
+		res = evsel->dispatch(base, tv_p);                                  //后台事件循环主体
 
 		if (res == -1) {
 			event_debug(("%s: dispatch returned unsuccessfully.",
@@ -1633,10 +1644,10 @@ event_base_loop(struct event_base *base, int flags)
 
 		update_time_cache(base);
 
-		timeout_process(base);
+		timeout_process(base);                                              //处理超时事件
 
 		if (N_ACTIVE_CALLBACKS(base)) {
-			int n = event_process_active(base);
+			int n = event_process_active(base);                             //处理非超时时间，IO事件
 			if ((flags & EVLOOP_ONCE)
 			    && N_ACTIVE_CALLBACKS(base) == 0
 			    && n != 0)
@@ -1732,6 +1743,9 @@ event_base_once(struct event_base *base, evutil_socket_t fd, short events,
 	return (0);
 }
 
+/*
+ * 以指定的参数初始化事件结构体 event
+ */
 int
 event_assign(struct event *ev, struct event_base *base, evutil_socket_t fd, short events, void (*callback)(evutil_socket_t, short, void *), void *arg)
 {
@@ -1742,6 +1756,7 @@ event_assign(struct event *ev, struct event_base *base, evutil_socket_t fd, shor
 
 	ev->ev_base = base;
 
+    /*初始化基础参数*/
 	ev->ev_callback = callback;
 	ev->ev_arg = arg;
 	ev->ev_fd = fd;
@@ -1751,6 +1766,7 @@ event_assign(struct event *ev, struct event_base *base, evutil_socket_t fd, shor
 	ev->ev_ncalls = 0;
 	ev->ev_pncalls = NULL;
 
+    /*是否为信号事件*/
 	if (events & EV_SIGNAL) {
 		if ((events & (EV_READ|EV_WRITE)) != 0) {
 			event_warnx("%s: EV_SIGNAL is not compatible with "
@@ -1794,6 +1810,9 @@ event_base_set(struct event_base *base, struct event *ev)
 	return (0);
 }
 
+/*
+ * 设置一个 event 事件
+ */
 void
 event_set(struct event *ev, evutil_socket_t fd, short events,
 	  void (*callback)(evutil_socket_t, short, void *), void *arg)
@@ -1803,6 +1822,9 @@ event_set(struct event *ev, evutil_socket_t fd, short events,
 	EVUTIL_ASSERT(r == 0);
 }
 
+/*
+ * 初始化一个 event 结构体
+ */
 struct event *
 event_new(struct event_base *base, evutil_socket_t fd, short events, void (*cb)(evutil_socket_t, short, void *), void *arg)
 {
@@ -1818,6 +1840,9 @@ event_new(struct event_base *base, evutil_socket_t fd, short events, void (*cb)(
 	return (ev);
 }
 
+/*
+ * 释放一个 event
+ */
 void
 event_free(struct event *ev)
 {
@@ -1969,6 +1994,9 @@ event_get_callback_arg(const struct event *ev)
 	return ev->ev_arg;
 }
 
+/*
+ * 将一个事件添加至 event_base 事件循环中
+ */
 int
 event_add(struct event *ev, const struct timeval *tv)
 {
@@ -2067,7 +2095,7 @@ event_add_internal(struct event *ev, const struct timeval *tv,
 	 * prepare for timeout insertion further below, if we get a
 	 * failure on any step, we should not change any state.
 	 */
-	if (tv != NULL && !(ev->ev_flags & EVLIST_TIMEOUT)) {
+	if (tv != NULL && !(ev->ev_flags & EVLIST_TIMEOUT)) {                       //为超时事件先做准备，如果该操作失败，后续操作都不执行
 		if (min_heap_reserve(&base->timeheap,
 			1 + min_heap_size(&base->timeheap)) == -1)
 			return (-1);  /* ENOMEM == errno */
@@ -2191,6 +2219,9 @@ event_add_internal(struct event *ev, const struct timeval *tv,
 	return (res);
 }
 
+/*
+ * 删除一个事件 event
+ */
 int
 event_del(struct event *ev)
 {
@@ -2587,6 +2618,9 @@ insert_common_timeout_inorder(struct common_timeout_list *ctl,
 	    ev_timeout_pos.ev_next_with_common_timeout);
 }
 
+/*
+ * 将事件 event 根据 queue 参数入相应队列
+ */
 static void
 event_queue_insert(struct event_base *base, struct event *ev, int queue)
 {
@@ -2605,17 +2639,17 @@ event_queue_insert(struct event_base *base, struct event *ev, int queue)
 	if (~ev->ev_flags & EVLIST_INTERNAL)
 		base->event_count++;
 
-	ev->ev_flags |= queue;
+	ev->ev_flags |= queue;                                                  //置相应参数
 	switch (queue) {
-	case EVLIST_INSERTED:
+	case EVLIST_INSERTED:                                                   //新事件，置入队列中
 		TAILQ_INSERT_TAIL(&base->eventqueue, ev, ev_next);
 		break;
-	case EVLIST_ACTIVE:
+	case EVLIST_ACTIVE:                                                     //活跃事件
 		base->event_count_active++;
 		TAILQ_INSERT_TAIL(&base->activequeues[ev->ev_pri],
 		    ev,ev_active_next);
 		break;
-	case EVLIST_TIMEOUT: {
+	case EVLIST_TIMEOUT: {                                                  //超时事件
 		if (is_common_timeout(&ev->ev_timeout, base)) {
 			struct common_timeout_list *ctl =
 			    get_common_timeout_list(base, &ev->ev_timeout);

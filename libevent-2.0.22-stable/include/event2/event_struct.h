@@ -84,6 +84,9 @@ struct name {					\
 #endif
 
 struct event_base;
+/*
+ * 事件结构体
+ */
 struct event {
 	TAILQ_ENTRY(event) ev_active_next;
 	TAILQ_ENTRY(event) ev_next;
@@ -92,15 +95,15 @@ struct event {
 		TAILQ_ENTRY(event) ev_next_with_common_timeout;
 		int min_heap_idx;
 	} ev_timeout_pos;
-	evutil_socket_t ev_fd;
+	evutil_socket_t ev_fd;                                          //事件 fd
 
-	struct event_base *ev_base;
+	struct event_base *ev_base;                                     //event_base 指针
 
 	union {
 		/* used for io events */
 		struct {
 			TAILQ_ENTRY(event) ev_io_next;
-			struct timeval ev_timeout;
+			struct timeval ev_timeout;                              //IO超时时间
 		} ev_io;
 
 		/* used by signal events */
@@ -112,15 +115,15 @@ struct event {
 		} ev_signal;
 	} _ev;
 
-	short ev_events;
+	short ev_events;                                                //事件类型，读事件或写事件
 	short ev_res;		/* result passed to event callback */
 	short ev_flags;
-	ev_uint8_t ev_pri;	/* smaller numbers are higher priority */
-	ev_uint8_t ev_closure;
+	ev_uint8_t ev_pri;	/* smaller numbers are higher priority */   //事件优先级
+	ev_uint8_t ev_closure;                                          //事件是否终止
 	struct timeval ev_timeout;
 
 	/* allows us to adopt for different types of events */
-	void (*ev_callback)(evutil_socket_t, short, void *arg);
+	void (*ev_callback)(evutil_socket_t, short, void *arg);         //事件回调函数
 	void *ev_arg;
 };
 

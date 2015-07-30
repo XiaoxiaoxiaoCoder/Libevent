@@ -206,10 +206,13 @@ struct event_base {
 
 	/** Set if we should terminate the loop once we're done processing
 	 * events. */
+    /*是否需要终止事件循环当事件都处理完的时候*/
 	int event_gotterm;
 	/** Set if we should terminate the loop immediately */
+    /*是否需要立即终止事件循环*/
 	int event_break;
 	/** Set if we should start a new instance of the loop immediately. */
+    /*是否需要立即启动一个新的事件循环*/
 	int event_continue;
 
 	/** The currently running priority of events */
@@ -224,6 +227,7 @@ struct event_base {
 	 * have triggered, and whose callbacks need to be called).  Low
 	 * priority numbers are more important, and stall higher ones.
 	 */
+    /*活跃事件优先级队列*/
 	struct event_list *activequeues;
 	/** The length of the activequeues array */
 	int nactivequeues;
@@ -249,7 +253,8 @@ struct event_base {
 	struct event_signal_map sigmap;
 
 	/** All events that have been enabled (added) in this event_base */
-	struct event_list eventqueue;
+    /*事件队列*/
+	struct event_list eventqueue; 
 
 	/** Stored timeval; used to detect when time is running backwards. */
 	struct timeval event_tv;
@@ -272,6 +277,7 @@ struct event_base {
 #ifndef _EVENT_DISABLE_THREAD_SUPPORT
 	/* threading support */
 	/** The thread currently running the event_loop for this base */
+    /*当前在跑的 event_loop 进程id*/
 	unsigned long th_owner_id;
 	/** A lock to prevent conflicting accesses to this event_base */
 	void *th_base_lock;

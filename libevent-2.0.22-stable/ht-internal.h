@@ -8,6 +8,10 @@
 #ifndef _EVENT_HT_H
 #define _EVENT_HT_H
 
+
+/*
+ * hash_table 申明宏定义
+ */
 #define HT_HEAD(name, type)                                             \
   struct name {                                                         \
     /* The hash table itself. */                                        \

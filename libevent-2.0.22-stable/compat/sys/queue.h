@@ -85,6 +85,9 @@
 /*
  * Singly-linked List definitions.
  */
+/*
+ * 单链表的定义
+ */
 #define SLIST_HEAD(name, type)						\
 struct name {								\
 	struct type *slh_first;	/* first element */			\
@@ -136,6 +139,9 @@ struct {								\
 
 /*
  * List definitions.
+ */
+/*
+ * 双链表的定义
  */
 #define LIST_HEAD(name, type)						\
 struct name {								\

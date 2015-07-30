@@ -259,6 +259,9 @@ evmap_io_init(struct evmap_io *entry)
 
 /* return -1 on error, 0 on success if nothing changed in the event backend,
  * and 1 on success if something did. */
+/*
+ * 添加事件 event 至 event_base 中
+ */
 int
 evmap_io_add(struct event_base *base, evutil_socket_t fd, struct event *ev)
 {
@@ -312,6 +315,7 @@ evmap_io_add(struct event_base *base, evutil_socket_t fd, struct event *ev)
 		return -1;
 	}
 
+    /*有事件，添加事件*/
 	if (res) {
 		void *extra = ((char*)ctx) + sizeof(struct evmap_io);
 		/* XXX(niels): we cannot mix edge-triggered and
