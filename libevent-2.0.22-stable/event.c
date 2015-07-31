@@ -1319,7 +1319,7 @@ event_persist_closure(struct event_base *base, struct event *ev)
  	EVBASE_RELEASE_LOCK(base, th_base_lock);
 
 	// Execute the callback
-        (evcb_callback)(evcb_fd, evcb_res, evcb_arg);
+    (evcb_callback)(evcb_fd, evcb_res, evcb_arg);
 }
 
 /*
@@ -1329,6 +1329,9 @@ event_persist_closure(struct event_base *base, struct event *ev)
   means we should stop processing any active events now.  Otherwise returns
   the number of non-internal events that we processed.
 */
+/*
+ * 处理一个队列内的所有事件
+ */
 static int
 event_process_active_single_queue(struct event_base *base,
     struct event_list *activeq)
@@ -1358,6 +1361,7 @@ event_process_active_single_queue(struct event_base *base,
 		base->current_event_waiters = 0;
 #endif
 
+        /*根据事件终止类型进行处理*/
 		switch (ev->ev_closure) {
 		case EV_CLOSURE_SIGNAL:
 			event_signal_closure(base, ev);
@@ -1434,11 +1438,12 @@ event_process_active(struct event_base *base)
 	struct event_list *activeq = NULL;
 	int i, c = 0;
 
+    /*按优先级处理事件*/
 	for (i = 0; i < base->nactivequeues; ++i) {
 		if (TAILQ_FIRST(&base->activequeues[i]) != NULL) {
 			base->event_running_priority = i;
 			activeq = &base->activequeues[i];
-			c = event_process_active_single_queue(base, activeq);
+			c = event_process_active_single_queue(base, activeq);                   //处理一个优先级队列的事件
 			if (c < 0) {
 				base->event_running_priority = -1;
 				return -1;
@@ -2548,6 +2553,9 @@ timeout_process(struct event_base *base)
 }
 
 /* Remove 'ev' from 'queue' (EVLIST_...) in base. */
+/*
+ * 从队列中移除指定 ev
+ */
 static void
 event_queue_remove(struct event_base *base, struct event *ev, int queue)
 {

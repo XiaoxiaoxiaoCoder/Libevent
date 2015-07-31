@@ -101,12 +101,14 @@ struct event {
 
 	union {
 		/* used for io events */
+        /*IO事件*/
 		struct {
 			TAILQ_ENTRY(event) ev_io_next;
 			struct timeval ev_timeout;                              //IO超时时间
 		} ev_io;
 
 		/* used by signal events */
+        /*信号量事件*/
 		struct {
 			TAILQ_ENTRY(event) ev_signal_next;
 			short ev_ncalls;

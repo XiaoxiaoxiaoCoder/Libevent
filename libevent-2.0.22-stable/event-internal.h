@@ -107,6 +107,7 @@ struct eventop {
 	    as part of the evmap entry for each fd, and passed as an argument
 	    to the add and del functions above.
 	 */
+    /*扩展内容数据的长度*/
 	size_t fdinfo_len;
 };
 
@@ -132,11 +133,16 @@ HT_HEAD(event_io_map, event_map_entry);
    defined, this structure is also used as event_io_map, which maps fds to a
    list of events.
 */
+/*
+ * 信号量map,如果 EVMAP_USE_HT 没定义， event_io_map 也用这种
+ */
 struct event_signal_map {
 	/* An array of evmap_io * or of evmap_signal *; empty entries are
 	 * set to NULL. */
+    /*事件数组*/
 	void **entries;
 	/* The number of entries available in entries */
+    /*事件数量*/
 	int nentries;
 };
 
@@ -164,10 +170,13 @@ struct event_change;
 
 /* List of 'changes' since the last call to eventop.dispatch.  Only maintained
  * if the backend is using changesets. */
+/*
+ * 事件变化list
+ */
 struct event_changelist {
-	struct event_change *changes;
-	int n_changes;
-	int changes_size;
+	struct event_change *changes;       //变化的事件list
+	int n_changes;                      //变化事件的数量
+	int changes_size;                   //容量
 };
 
 #ifndef _EVENT_DISABLE_DEBUG_MODE
@@ -216,6 +225,7 @@ struct event_base {
 	int event_continue;
 
 	/** The currently running priority of events */
+    /*当前处理事件的优先级*/
 	int event_running_priority;
 
 	/** Set if we're running the event_base_loop function, to prevent
@@ -247,9 +257,11 @@ struct event_base {
 	struct deferred_cb_queue defer_queue;
 
 	/** Mapping from file descriptors to enabled (added) events */
+    /*io_map 事件 存储结构体*/
 	struct event_io_map io;
 
 	/** Mapping from signal numbers to enabled (added) events. */
+    /*信号事件 结构存储体*/
 	struct event_signal_map sigmap;
 
 	/** All events that have been enabled (added) in this event_base */

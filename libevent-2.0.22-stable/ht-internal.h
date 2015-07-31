@@ -12,41 +12,53 @@
 /*
  * hash_table 申明宏定义
  */
-#define HT_HEAD(name, type)                                             \
-  struct name {                                                         \
-    /* The hash table itself. */                                        \
-    struct type **hth_table;                                            \
-    /* How long is the hash table? */                                   \
-    unsigned hth_table_length;                                          \
-    /* How many elements does the table contain? */                     \
-    unsigned hth_n_entries;                                             \
-    /* How many elements will we allow in the table before resizing it? */ \
-    unsigned hth_load_limit;                                            \
-    /* Position of hth_table_length in the primes table. */             \
-    int hth_prime_idx;                                                  \
+#define HT_HEAD(name, type)                                                 \
+  struct name {                                                             \
+    /* The hash table itself. */                                            \
+    struct type **hth_table;                                                \
+    /* How long is the hash table? */                                       \
+    unsigned hth_table_length;                                              \
+    /* How many elements does the table contain? */                         \
+    unsigned hth_n_entries;                                                 \
+    /* How many elements will we allow in the table before resizing it? */  \
+    unsigned hth_load_limit;                                                \
+    /* Position of hth_table_length in the primes table. */                 \
+    int hth_prime_idx;                                                      \
   }
 
-#define HT_INITIALIZER()                        \
+/*
+ * 初始化 hash table
+ */
+#define HT_INITIALIZER()                   \
   { NULL, 0, 0, 0, -1 }
 
+/*
+ * Hash 节点的声明
+ */
 #ifdef HT_CACHE_HASH_VALUES
-#define HT_ENTRY(type)                          \
-  struct {                                      \
-    struct type *hte_next;                      \
-    unsigned hte_hash;                          \
+#define HT_ENTRY(type)                     \
+  struct {                                 \
+    struct type *hte_next;                 \
+    unsigned hte_hash;                     \
   }
 #else
-#define HT_ENTRY(type)                          \
-  struct {                                      \
-    struct type *hte_next;                      \
+#define HT_ENTRY(type)                     \
+  struct {                                 \
+    struct type *hte_next;                 \
   }
 #endif
 
-#define HT_EMPTY(head)                          \
+/*
+ * Hash table 是否为空
+ */
+#define HT_EMPTY(head)                     \
   ((head)->hth_n_entries == 0)
 
 /* How many elements in 'head'? */
-#define HT_SIZE(head)                           \
+/*
+ * hash table 中的节点数
+ */
+#define HT_SIZE(head)                      \
   ((head)->hth_n_entries)
 
 #define HT_FIND(name, head, elm)     name##_HT_FIND((head), (elm))
@@ -59,6 +71,9 @@
 #define HT_CLEAR(name, head)         name##_HT_CLEAR(head)
 #define HT_INIT(name, head)          name##_HT_INIT(head)
 /* Helper: */
+/*
+ * Helper 函数族
+ */
 static inline unsigned
 ht_improve_hash(unsigned h)
 {
@@ -87,6 +102,9 @@ ht_string_hash(const char *s)
 #endif
 
 /** Basic string hash function, from Python's str.__hash__() */
+/*
+ * 根据输入的字符串转换出相应的 hash int 值
+ */
 static inline unsigned
 ht_string_hash(const char *s)
 {
@@ -101,8 +119,11 @@ ht_string_hash(const char *s)
   return h;
 }
 
+/*
+ * 相应的 hash entry 操作宏
+ */
 #ifdef HT_CACHE_HASH_VALUES
-#define _HT_SET_HASH(elm, field, hashfn)        \
+#define _HT_SET_HASH(elm, field, hashfn)    \
 	do { (elm)->field.hte_hash = hashfn(elm); } while (0)
 #define _HT_SET_HASHVAL(elm, field, val)	\
 	do { (elm)->field.hte_hash = (val); } while (0)
@@ -118,311 +139,339 @@ ht_string_hash(const char *s)
 #endif
 
 /* Helper: alias for the bucket containing 'elm'. */
+/*
+ * 计算节点所在的 hash 桶
+ */
 #define _HT_BUCKET(head, field, elm, hashfn)				\
 	((head)->hth_table[_HT_ELT_HASH(elm,field,hashfn) % head->hth_table_length])
-
+/*
+ * 遍历 hash 节点
+ */
 #define HT_FOREACH(x, name, head)                 \
   for ((x) = HT_START(name, head);                \
        (x) != NULL;                               \
        (x) = HT_NEXT(name, head, x))
 
-#define HT_PROTOTYPE(name, type, field, hashfn, eqfn)                   \
-  int name##_HT_GROW(struct name *ht, unsigned min_capacity);           \
-  void name##_HT_CLEAR(struct name *ht);                                \
-  int _##name##_HT_REP_IS_BAD(const struct name *ht);                   \
-  static inline void                                                    \
-  name##_HT_INIT(struct name *head) {                                   \
-    head->hth_table_length = 0;                                         \
-    head->hth_table = NULL;                                             \
-    head->hth_n_entries = 0;                                            \
-    head->hth_load_limit = 0;                                           \
-    head->hth_prime_idx = -1;                                           \
-  }                                                                     \
-  /* Helper: returns a pointer to the right location in the table       \
-   * 'head' to find or insert the element 'elm'. */                     \
-  static inline struct type **                                          \
-  _##name##_HT_FIND_P(struct name *head, struct type *elm)              \
-  {                                                                     \
-    struct type **p;                                                    \
-    if (!head->hth_table)                                               \
-      return NULL;                                                      \
-    p = &_HT_BUCKET(head, field, elm, hashfn);				\
-    while (*p) {                                                        \
-      if (eqfn(*p, elm))                                                \
-        return p;                                                       \
-      p = &(*p)->field.hte_next;                                        \
-    }                                                                   \
-    return p;                                                           \
-  }                                                                     \
-  /* Return a pointer to the element in the table 'head' matching 'elm', \
-   * or NULL if no such element exists */                               \
-  static inline struct type *                                           \
-  name##_HT_FIND(const struct name *head, struct type *elm)             \
-  {                                                                     \
-    struct type **p;                                                    \
-    struct name *h = (struct name *) head;                              \
-    _HT_SET_HASH(elm, field, hashfn);                                   \
-    p = _##name##_HT_FIND_P(h, elm);                                    \
-    return p ? *p : NULL;                                               \
-  }                                                                     \
-  /* Insert the element 'elm' into the table 'head'.  Do not call this  \
-   * function if the table might already contain a matching element. */ \
-  static inline void                                                    \
-  name##_HT_INSERT(struct name *head, struct type *elm)                 \
-  {                                                                     \
-    struct type **p;                                                    \
-    if (!head->hth_table || head->hth_n_entries >= head->hth_load_limit) \
-      name##_HT_GROW(head, head->hth_n_entries+1);                      \
-    ++head->hth_n_entries;                                              \
-    _HT_SET_HASH(elm, field, hashfn);                                   \
-    p = &_HT_BUCKET(head, field, elm, hashfn);				\
-    elm->field.hte_next = *p;                                           \
-    *p = elm;                                                           \
-  }                                                                     \
-  /* Insert the element 'elm' into the table 'head'. If there already   \
-   * a matching element in the table, replace that element and return   \
-   * it. */                                                             \
-  static inline struct type *                                           \
-  name##_HT_REPLACE(struct name *head, struct type *elm)                \
-  {                                                                     \
-    struct type **p, *r;                                                \
-    if (!head->hth_table || head->hth_n_entries >= head->hth_load_limit) \
-      name##_HT_GROW(head, head->hth_n_entries+1);                      \
-    _HT_SET_HASH(elm, field, hashfn);                                   \
-    p = _##name##_HT_FIND_P(head, elm);                                 \
-    r = *p;                                                             \
-    *p = elm;                                                           \
-    if (r && (r!=elm)) {                                                \
-      elm->field.hte_next = r->field.hte_next;                          \
-      r->field.hte_next = NULL;                                         \
-      return r;                                                         \
-    } else {                                                            \
-      ++head->hth_n_entries;                                            \
-      return NULL;                                                      \
-    }                                                                   \
-  }                                                                     \
-  /* Remove any element matching 'elm' from the table 'head'.  If such  \
-   * an element is found, return it; otherwise return NULL. */          \
-  static inline struct type *                                           \
-  name##_HT_REMOVE(struct name *head, struct type *elm)                 \
-  {                                                                     \
-    struct type **p, *r;                                                \
-    _HT_SET_HASH(elm, field, hashfn);                                   \
-    p = _##name##_HT_FIND_P(head,elm);                                  \
-    if (!p || !*p)                                                      \
-      return NULL;                                                      \
-    r = *p;                                                             \
-    *p = r->field.hte_next;                                             \
-    r->field.hte_next = NULL;                                           \
-    --head->hth_n_entries;                                              \
-    return r;                                                           \
-  }                                                                     \
-  /* Invoke the function 'fn' on every element of the table 'head',     \
-   * using 'data' as its second argument.  If the function returns      \
-   * nonzero, remove the most recently examined element before invoking \
-   * the function again. */                                             \
-  static inline void                                                    \
-  name##_HT_FOREACH_FN(struct name *head,                               \
-                       int (*fn)(struct type *, void *),                \
-                       void *data)                                      \
-  {                                                                     \
-    unsigned idx;                                                       \
-    struct type **p, **nextp, *next;                                    \
-    if (!head->hth_table)                                               \
-      return;                                                           \
-    for (idx=0; idx < head->hth_table_length; ++idx) {                  \
-      p = &head->hth_table[idx];                                        \
-      while (*p) {                                                      \
-        nextp = &(*p)->field.hte_next;                                  \
-        next = *nextp;                                                  \
-        if (fn(*p, data)) {                                             \
-          --head->hth_n_entries;                                        \
-          *p = next;                                                    \
-        } else {                                                        \
-          p = nextp;                                                    \
-        }                                                               \
-      }                                                                 \
-    }                                                                   \
-  }                                                                     \
-  /* Return a pointer to the first element in the table 'head', under   \
-   * an arbitrary order.  This order is stable under remove operations, \
-   * but not under others. If the table is empty, return NULL. */       \
-  static inline struct type **                                          \
-  name##_HT_START(struct name *head)                                    \
-  {                                                                     \
-    unsigned b = 0;                                                     \
-    while (b < head->hth_table_length) {                                \
-      if (head->hth_table[b])                                           \
-        return &head->hth_table[b];                                     \
-      ++b;                                                              \
-    }                                                                   \
-    return NULL;                                                        \
-  }                                                                     \
-  /* Return the next element in 'head' after 'elm', under the arbitrary \
-   * order used by HT_START.  If there are no more elements, return     \
-   * NULL.  If 'elm' is to be removed from the table, you must call     \
-   * this function for the next value before you remove it.             \
-   */                                                                   \
-  static inline struct type **                                          \
-  name##_HT_NEXT(struct name *head, struct type **elm)                  \
-  {                                                                     \
-    if ((*elm)->field.hte_next) {                                       \
-      return &(*elm)->field.hte_next;                                   \
-    } else {                                                            \
+/*
+ * 一系列的 hash table 相关函数宏定义
+ */
+#define HT_PROTOTYPE(name, type, field, hashfn, eqfn)                           \
+  /*函数声明*/                                                                  \
+  int name##_HT_GROW(struct name *ht, unsigned min_capacity);                   \
+  void name##_HT_CLEAR(struct name *ht);                                        \
+  int _##name##_HT_REP_IS_BAD(const struct name *ht);                           \
+                                                                                \
+  /*hash table 初始化函数*/                                                     \
+  static inline void                                                            \
+  name##_HT_INIT(struct name *head) {                                           \
+    head->hth_table_length = 0;                                                 \
+    head->hth_table = NULL;                                                     \
+    head->hth_n_entries = 0;                                                    \
+    head->hth_load_limit = 0;                                                   \
+    head->hth_prime_idx = -1;                                                   \
+  }                                                                             \
+  /* Helper: returns a pointer to the right location in the table               \
+   * 'head' to find or insert the element 'elm'. */                             \
+  /*返回插入节点所在桶的尾结点*/                                                \
+  static inline struct type **                                                  \
+  _##name##_HT_FIND_P(struct name *head, struct type *elm)                      \
+  {                                                                             \
+    struct type **p;                                                            \
+    if (!head->hth_table)                                                       \
+      return NULL;                                                              \
+    p = &_HT_BUCKET(head, field, elm, hashfn);				                    \
+    while (*p) {                                                                \
+      if (eqfn(*p, elm))                                                        \
+        return p;                                                               \
+      p = &(*p)->field.hte_next;                                                \
+    }                                                                           \
+    return p;                                                                   \
+  }                                                                             \
+  /* Return a pointer to the element in the table 'head' matching 'elm',        \
+   * or NULL if no such element exists */                                       \
+  /*返回元素 elem 所在的节点，如果存在返回节点指针，否则返回NULL*/              \
+  static inline struct type *                                                   \
+  name##_HT_FIND(const struct name *head, struct type *elm)                     \
+  {                                                                             \
+    struct type **p;                                                            \
+    struct name *h = (struct name *) head;                                      \
+    _HT_SET_HASH(elm, field, hashfn);                                           \
+    p = _##name##_HT_FIND_P(h, elm);                                            \
+    return p ? *p : NULL;                                                       \
+  }                                                                             \
+  /* Insert the element 'elm' into the table 'head'.  Do not call this          \
+   * function if the table might already contain a matching element. */         \
+  /*将节点 elm 插入 hashtable，当节点已经存在于table，不要调用该函数*/          \
+  static inline void                                                            \
+  name##_HT_INSERT(struct name *head, struct type *elm)                         \
+  {                                                                             \
+    struct type **p;                                                            \
+    if (!head->hth_table || head->hth_n_entries >= head->hth_load_limit)        \
+      name##_HT_GROW(head, head->hth_n_entries+1);                              \
+    ++head->hth_n_entries;                                                      \
+    _HT_SET_HASH(elm, field, hashfn);                                           \
+    p = &_HT_BUCKET(head, field, elm, hashfn);				                    \
+    elm->field.hte_next = *p;                                                   \
+    *p = elm;                                                                   \
+  }                                                                             \
+  /* Insert the element 'elm' into the table 'head'. If there already           \
+   * a matching element in the table, replace that element and return           \
+   * it. */                                                                     \
+  /*将节点 elm 插入 table 中，如果该节点已经存在于table*/                       \
+  /*则替换该节点并返回该节点指针*/                                              \
+  static inline struct type *                                                   \
+  name##_HT_REPLACE(struct name *head, struct type *elm)                        \
+  {                                                                             \
+    struct type **p, *r;                                                        \
+    if (!head->hth_table || head->hth_n_entries >= head->hth_load_limit)        \
+      name##_HT_GROW(head, head->hth_n_entries+1);                              \
+    _HT_SET_HASH(elm, field, hashfn);                                           \
+    p = _##name##_HT_FIND_P(head, elm);                                         \
+    r = *p;                                                                     \
+    *p = elm;                                                                   \
+    if (r && (r!=elm)) {                                                        \
+      elm->field.hte_next = r->field.hte_next;                                  \
+      r->field.hte_next = NULL;                                                 \
+      return r;                                                                 \
+    } else {                                                                    \
+      ++head->hth_n_entries;                                                    \
+      return NULL;                                                              \
+    }                                                                           \
+  }                                                                             \
+  /* Remove any element matching 'elm' from the table 'head'.  If such          \
+   * an element is found, return it; otherwise return NULL. */                  \
+  /*删除节点 elm，如果该节点存在则返回节点指针，否则返回NULL*/                  \
+  static inline struct type *                                                   \
+  name##_HT_REMOVE(struct name *head, struct type *elm)                         \
+  {                                                                             \
+    struct type **p, *r;                                                        \
+    _HT_SET_HASH(elm, field, hashfn);                                           \
+    p = _##name##_HT_FIND_P(head,elm);                                          \
+    if (!p || !*p)                                                              \
+      return NULL;                                                              \
+    r = *p;                                                                     \
+    *p = r->field.hte_next;                                                     \
+    r->field.hte_next = NULL;                                                   \
+    --head->hth_n_entries;                                                      \
+    return r;                                                                   \
+  }                                                                             \
+  /* Invoke the function 'fn' on every element of the table 'head',             \
+   * using 'data' as its second argument.  If the function returns              \
+   * nonzero, remove the most recently examined element before invoking         \
+   * the function again. */                                                     \
+  static inline void                                                            \
+  name##_HT_FOREACH_FN(struct name *head,                                       \
+                       int (*fn)(struct type *, void *),                        \
+                       void *data)                                              \
+  {                                                                             \
+    unsigned idx;                                                               \
+    struct type **p, **nextp, *next;                                            \
+    if (!head->hth_table)                                                       \
+      return;                                                                   \
+    for (idx=0; idx < head->hth_table_length; ++idx) {                          \
+      p = &head->hth_table[idx];                                                \
+      while (*p) {                                                              \
+        nextp = &(*p)->field.hte_next;                                          \
+        next = *nextp;                                                          \
+        if (fn(*p, data)) {                                                     \
+          --head->hth_n_entries;                                                \
+          *p = next;                                                            \
+        } else {                                                                \
+          p = nextp;                                                            \
+        }                                                                       \
+      }                                                                         \
+    }                                                                           \
+  }                                                                             \
+  /* Return a pointer to the first element in the table 'head', under           \
+   * an arbitrary order.  This order is stable under remove operations,         \
+   * but not under others. If the table is empty, return NULL. */               \
+  /*返回 hashtable 中的第一个元素*/                                             \
+  static inline struct type **                                                  \
+  name##_HT_START(struct name *head)                                            \
+  {                                                                             \
+    unsigned b = 0;                                                             \
+    while (b < head->hth_table_length) {                                        \
+      if (head->hth_table[b])                                                   \
+        return &head->hth_table[b];                                             \
+      ++b;                                                                      \
+    }                                                                           \
+    return NULL;                                                                \
+  }                                                                             \
+  /* Return the next element in 'head' after 'elm', under the arbitrary         \
+   * order used by HT_START.  If there are no more elements, return             \
+   * NULL.  If 'elm' is to be removed from the table, you must call             \
+   * this function for the next value before you remove it.                     \
+   */                                                                           \
+  /*返回 elm 元素的下一个元素*/                                                 \
+  static inline struct type **                                                  \
+  name##_HT_NEXT(struct name *head, struct type **elm)                          \
+  {                                                                             \
+    if ((*elm)->field.hte_next) {                                               \
+      return &(*elm)->field.hte_next;                                           \
+    } else {                                                                    \
       unsigned b = (_HT_ELT_HASH(*elm, field, hashfn) % head->hth_table_length)+1; \
-      while (b < head->hth_table_length) {                              \
-        if (head->hth_table[b])                                         \
-          return &head->hth_table[b];                                   \
-        ++b;                                                            \
-      }                                                                 \
-      return NULL;                                                      \
-    }                                                                   \
-  }                                                                     \
-  static inline struct type **                                          \
-  name##_HT_NEXT_RMV(struct name *head, struct type **elm)              \
-  {                                                                     \
-    unsigned h = _HT_ELT_HASH(*elm, field, hashfn);		        \
-    *elm = (*elm)->field.hte_next;                                      \
-    --head->hth_n_entries;                                              \
-    if (*elm) {                                                         \
-      return elm;                                                       \
-    } else {                                                            \
-      unsigned b = (h % head->hth_table_length)+1;                      \
-      while (b < head->hth_table_length) {                              \
-        if (head->hth_table[b])                                         \
-          return &head->hth_table[b];                                   \
-        ++b;                                                            \
-      }                                                                 \
-      return NULL;                                                      \
-    }                                                                   \
+      while (b < head->hth_table_length) {                                      \
+        if (head->hth_table[b])                                                 \
+          return &head->hth_table[b];                                           \
+        ++b;                                                                    \
+      }                                                                         \
+      return NULL;                                                              \
+    }                                                                           \
+  }                                                                             \
+  /*返回节点 elm 的下一节点，并删除 elm 节点*/                                  \
+  static inline struct type **                                                  \
+  name##_HT_NEXT_RMV(struct name *head, struct type **elm)                      \
+  {                                                                             \
+    unsigned h = _HT_ELT_HASH(*elm, field, hashfn);		                        \
+    *elm = (*elm)->field.hte_next;                                              \
+    --head->hth_n_entries;                                                      \
+    if (*elm) {                                                                 \
+      return elm;                                                               \
+    } else {                                                                    \
+      unsigned b = (h % head->hth_table_length)+1;                              \
+      while (b < head->hth_table_length) {                                      \
+        if (head->hth_table[b])                                                 \
+          return &head->hth_table[b];                                           \
+        ++b;                                                                    \
+      }                                                                         \
+      return NULL;                                                              \
+    }                                                                           \
   }
 
-#define HT_GENERATE(name, type, field, hashfn, eqfn, load, mallocfn,    \
-                    reallocfn, freefn)                                  \
-  static unsigned name##_PRIMES[] = {                                   \
-    53, 97, 193, 389,                                                   \
-    769, 1543, 3079, 6151,                                              \
-    12289, 24593, 49157, 98317,                                         \
-    196613, 393241, 786433, 1572869,                                    \
-    3145739, 6291469, 12582917, 25165843,                               \
-    50331653, 100663319, 201326611, 402653189,                          \
-    805306457, 1610612741                                               \
-  };                                                                    \
-  static unsigned name##_N_PRIMES =                                     \
-    (unsigned)(sizeof(name##_PRIMES)/sizeof(name##_PRIMES[0]));         \
-  /* Expand the internal table of 'head' until it is large enough to    \
-   * hold 'size' elements.  Return 0 on success, -1 on allocation       \
-   * failure. */                                                        \
-  int                                                                   \
-  name##_HT_GROW(struct name *head, unsigned size)                      \
-  {                                                                     \
-    unsigned new_len, new_load_limit;                                   \
-    int prime_idx;                                                      \
-    struct type **new_table;                                            \
-    if (head->hth_prime_idx == (int)name##_N_PRIMES - 1)                \
-      return 0;                                                         \
-    if (head->hth_load_limit > size)                                    \
-      return 0;                                                         \
-    prime_idx = head->hth_prime_idx;                                    \
-    do {                                                                \
-      new_len = name##_PRIMES[++prime_idx];                             \
-      new_load_limit = (unsigned)(load*new_len);                        \
-    } while (new_load_limit <= size &&                                  \
-             prime_idx < (int)name##_N_PRIMES);                         \
-    if ((new_table = mallocfn(new_len*sizeof(struct type*)))) {         \
-      unsigned b;                                                       \
-      memset(new_table, 0, new_len*sizeof(struct type*));               \
-      for (b = 0; b < head->hth_table_length; ++b) {                    \
-        struct type *elm, *next;                                        \
-        unsigned b2;                                                    \
-        elm = head->hth_table[b];                                       \
-        while (elm) {                                                   \
-          next = elm->field.hte_next;                                   \
-          b2 = _HT_ELT_HASH(elm, field, hashfn) % new_len;              \
-          elm->field.hte_next = new_table[b2];                          \
-          new_table[b2] = elm;                                          \
-          elm = next;                                                   \
-        }                                                               \
-      }                                                                 \
-      if (head->hth_table)                                              \
-        freefn(head->hth_table);                                        \
-      head->hth_table = new_table;                                      \
-    } else {                                                            \
-      unsigned b, b2;                                                   \
-      new_table = reallocfn(head->hth_table, new_len*sizeof(struct type*)); \
-      if (!new_table) return -1;                                        \
-      memset(new_table + head->hth_table_length, 0,                     \
-             (new_len - head->hth_table_length)*sizeof(struct type*));  \
-      for (b=0; b < head->hth_table_length; ++b) {                      \
-        struct type *e, **pE;                                           \
-        for (pE = &new_table[b], e = *pE; e != NULL; e = *pE) {         \
-          b2 = _HT_ELT_HASH(e, field, hashfn) % new_len;                \
-          if (b2 == b) {                                                \
-            pE = &e->field.hte_next;                                    \
-          } else {                                                      \
-            *pE = e->field.hte_next;                                    \
-            e->field.hte_next = new_table[b2];                          \
-            new_table[b2] = e;                                          \
-          }                                                             \
-        }                                                               \
-      }                                                                 \
-      head->hth_table = new_table;                                      \
-    }                                                                   \
-    head->hth_table_length = new_len;                                   \
-    head->hth_prime_idx = prime_idx;                                    \
-    head->hth_load_limit = new_load_limit;                              \
-    return 0;                                                           \
-  }                                                                     \
-  /* Free all storage held by 'head'.  Does not free 'head' itself, or  \
-   * individual elements. */                                            \
-  void                                                                  \
-  name##_HT_CLEAR(struct name *head)                                    \
-  {                                                                     \
-    if (head->hth_table)                                                \
-      freefn(head->hth_table);                                          \
-    head->hth_table_length = 0;                                         \
-    name##_HT_INIT(head);                                               \
-  }                                                                     \
-  /* Debugging helper: return false iff the representation of 'head' is \
-   * internally consistent. */                                          \
-  int                                                                   \
-  _##name##_HT_REP_IS_BAD(const struct name *head)                      \
-  {                                                                     \
-    unsigned n, i;                                                      \
-    struct type *elm;                                                   \
-    if (!head->hth_table_length) {                                      \
-      if (!head->hth_table && !head->hth_n_entries &&                   \
-          !head->hth_load_limit && head->hth_prime_idx == -1)           \
-        return 0;                                                       \
-      else                                                              \
-        return 1;                                                       \
-    }                                                                   \
-    if (!head->hth_table || head->hth_prime_idx < 0 ||                  \
-        !head->hth_load_limit)                                          \
-      return 2;                                                         \
-    if (head->hth_n_entries > head->hth_load_limit)                     \
-      return 3;                                                         \
-    if (head->hth_table_length != name##_PRIMES[head->hth_prime_idx])   \
-      return 4;                                                         \
-    if (head->hth_load_limit != (unsigned)(load*head->hth_table_length)) \
-      return 5;                                                         \
-    for (n = i = 0; i < head->hth_table_length; ++i) {                  \
-      for (elm = head->hth_table[i]; elm; elm = elm->field.hte_next) {  \
-        if (_HT_ELT_HASH(elm, field, hashfn) != hashfn(elm))	        \
-          return 1000 + i;                                              \
-        if ((_HT_ELT_HASH(elm, field, hashfn) % head->hth_table_length) != i) \
-          return 10000 + i;                                             \
-        ++n;                                                            \
-      }                                                                 \
-    }                                                                   \
-    if (n != head->hth_n_entries)                                       \
-      return 6;                                                         \
-    return 0;                                                           \
+/*
+ * Hash table generate 宏定义
+ */
+#define HT_GENERATE(name, type, field, hashfn, eqfn, load, mallocfn,            \
+                    reallocfn, freefn)                                          \
+  static unsigned name##_PRIMES[] = {                                           \
+    53, 97, 193, 389,                                                           \
+    769, 1543, 3079, 6151,                                                      \
+    12289, 24593, 49157, 98317,                                                 \
+    196613, 393241, 786433, 1572869,                                            \
+    3145739, 6291469, 12582917, 25165843,                                       \
+    50331653, 100663319, 201326611, 402653189,                                  \
+    805306457, 1610612741                                                       \
+  };                                                                            \
+  static unsigned name##_N_PRIMES =                                             \
+    (unsigned)(sizeof(name##_PRIMES)/sizeof(name##_PRIMES[0]));                 \
+  /* Expand the internal table of 'head' until it is large enough to            \
+   * hold 'size' elements.  Return 0 on success, -1 on allocation               \
+   * failure. */                                                                \
+  /*hashtbale 扩容*/                                                            \
+  int                                                                           \
+  name##_HT_GROW(struct name *head, unsigned size)                              \
+  {                                                                             \
+    unsigned new_len, new_load_limit;                                           \
+    int prime_idx;                                                              \
+    struct type **new_table;                                                    \
+    if (head->hth_prime_idx == (int)name##_N_PRIMES - 1)                        \
+      return 0;                                                                 \
+    if (head->hth_load_limit > size)                                            \
+      return 0;                                                                 \
+    prime_idx = head->hth_prime_idx;                                            \
+    do {                                                                        \
+      new_len = name##_PRIMES[++prime_idx];                                     \
+      new_load_limit = (unsigned)(load*new_len);                                \
+    } while (new_load_limit <= size &&                                          \
+             prime_idx < (int)name##_N_PRIMES);                                 \
+    if ((new_table = mallocfn(new_len*sizeof(struct type*)))) {                 \
+      unsigned b;                                                               \
+      memset(new_table, 0, new_len*sizeof(struct type*));                       \
+      for (b = 0; b < head->hth_table_length; ++b) {                            \
+        struct type *elm, *next;                                                \
+        unsigned b2;                                                            \
+        elm = head->hth_table[b];                                               \
+        while (elm) {                                                           \
+          next = elm->field.hte_next;                                           \
+          b2 = _HT_ELT_HASH(elm, field, hashfn) % new_len;                      \
+          elm->field.hte_next = new_table[b2];                                  \
+          new_table[b2] = elm;                                                  \
+          elm = next;                                                           \
+        }                                                                       \
+      }                                                                         \
+      if (head->hth_table)                                                      \
+        freefn(head->hth_table);                                                \
+      head->hth_table = new_table;                                              \
+    } else {                                                                    \
+      unsigned b, b2;                                                           \
+      new_table = reallocfn(head->hth_table, new_len*sizeof(struct type*));     \
+      if (!new_table) return -1;                                                \
+      memset(new_table + head->hth_table_length, 0,                             \
+             (new_len - head->hth_table_length)*sizeof(struct type*));          \
+      for (b=0; b < head->hth_table_length; ++b) {                              \
+        struct type *e, **pE;                                                   \
+        for (pE = &new_table[b], e = *pE; e != NULL; e = *pE) {                 \
+          b2 = _HT_ELT_HASH(e, field, hashfn) % new_len;                        \
+          if (b2 == b) {                                                        \
+            pE = &e->field.hte_next;                                            \
+          } else {                                                              \
+            *pE = e->field.hte_next;                                            \
+            e->field.hte_next = new_table[b2];                                  \
+            new_table[b2] = e;                                                  \
+          }                                                                     \
+        }                                                                       \
+      }                                                                         \
+      head->hth_table = new_table;                                              \
+    }                                                                           \
+    head->hth_table_length = new_len;                                           \
+    head->hth_prime_idx = prime_idx;                                            \
+    head->hth_load_limit = new_load_limit;                                      \
+    return 0;                                                                   \
+  }                                                                             \
+  /* Free all storage held by 'head'.  Does not free 'head' itself, or          \
+   * individual elements. */                                                    \
+  /*清空hashtable*/                                                             \
+  void                                                                          \
+  name##_HT_CLEAR(struct name *head)                                            \
+  {                                                                             \
+    if (head->hth_table)                                                        \
+      freefn(head->hth_table);                                                  \
+    head->hth_table_length = 0;                                                 \
+    name##_HT_INIT(head);                                                       \
+  }                                                                             \
+  /* Debugging helper: return false iff the representation of 'head' is         \
+   * internally consistent. */                                                  \
+  int                                                                           \
+  _##name##_HT_REP_IS_BAD(const struct name *head)                              \
+  {                                                                             \
+    unsigned n, i;                                                              \
+    struct type *elm;                                                           \
+    if (!head->hth_table_length) {                                              \
+      if (!head->hth_table && !head->hth_n_entries &&                           \
+          !head->hth_load_limit && head->hth_prime_idx == -1)                   \
+        return 0;                                                               \
+      else                                                                      \
+        return 1;                                                               \
+    }                                                                           \
+    if (!head->hth_table || head->hth_prime_idx < 0 ||                          \
+        !head->hth_load_limit)                                                  \
+      return 2;                                                                 \
+    if (head->hth_n_entries > head->hth_load_limit)                             \
+      return 3;                                                                 \
+    if (head->hth_table_length != name##_PRIMES[head->hth_prime_idx])           \
+      return 4;                                                                 \
+    if (head->hth_load_limit != (unsigned)(load*head->hth_table_length))        \
+      return 5;                                                                 \
+    for (n = i = 0; i < head->hth_table_length; ++i) {                          \
+      for (elm = head->hth_table[i]; elm; elm = elm->field.hte_next) {          \
+        if (_HT_ELT_HASH(elm, field, hashfn) != hashfn(elm))	                \
+          return 1000 + i;                                                      \
+        if ((_HT_ELT_HASH(elm, field, hashfn) % head->hth_table_length)!= i)    \
+          return 10000 + i;                                                     \
+        ++n;                                                                    \
+      }                                                                         \
+    }                                                                           \
+    if (n != head->hth_n_entries)                                               \
+      return 6;                                                                 \
+    return 0;                                                                   \
   }
 
 /** Implements an over-optimized "find and insert if absent" block;
  * not meant for direct usage by typical code, or usage outside the critical
  * path.*/
+/*
+ * 查找指定元素 elm 是否存在，不存在则插入，存在则返回
+ */
 #define _HT_FIND_OR_INSERT(name, field, hashfn, head, eltype, elm, var, y, n) \
   {                                                                     \
     struct name *_##var##_head = head;                                  \
@@ -438,6 +487,9 @@ ht_string_hash(const char *s)
       n;                                                                \
     }                                                                   \
   }
+/*
+ * 插入节点 elm
+ */
 #define _HT_FOI_INSERT(field, head, elm, newent, var)       \
   {                                                         \
     _HT_SET_HASHVAL(newent, field, (elm)->field.hte_hash);  \

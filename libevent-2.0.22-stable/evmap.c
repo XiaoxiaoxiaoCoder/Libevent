@@ -54,14 +54,20 @@
 /** An entry for an evmap_io list: notes all the events that want to read or
 	write on a given fd, and the number of each.
   */
+/*
+ * IO事件链表
+ */
 struct evmap_io {
-	struct event_list events;
-	ev_uint16_t nread;
-	ev_uint16_t nwrite;
+	struct event_list events;           //事件链表
+	ev_uint16_t nread;                  //读事件个数
+	ev_uint16_t nwrite;                 //写事件个数
 };
 
 /* An entry for an evmap_signal list: notes all the events that want to know
    when a signal triggers. */
+/*
+ * 信号事件链表
+ */
 struct evmap_signal {
 	struct event_list events;
 };
@@ -73,6 +79,9 @@ struct evmap_signal {
    0-indexed, not necessarily consecutive, and not necessarily reused.
    There, we use a hashtable to implement evmap_io.
 */
+/*
+ * hashtable 实现方式
+ */
 #ifdef EVMAP_USE_HT
 struct event_map_entry {
 	HT_ENTRY(event_map_entry) map_node;
@@ -85,6 +94,9 @@ struct event_map_entry {
 
 /* Helper used by the event_io_map hashtable code; tries to return a good hash
  * of the fd in e->fd. */
+/*
+ * hash 函数
+ */
 static inline unsigned
 hashsocket(struct event_map_entry *e)
 {
@@ -98,6 +110,9 @@ hashsocket(struct event_map_entry *e)
 
 /* Helper used by the event_io_map hashtable code; returns true iff e1 and e2
  * have the same e->fd. */
+/*
+ * 判断两个 entry 是否相同函数
+ */
 static inline int
 eqsocket(struct event_map_entry *e1, struct event_map_entry *e2)
 {
@@ -108,14 +123,37 @@ HT_PROTOTYPE(event_io_map, event_map_entry, map_node, hashsocket, eqsocket)
 HT_GENERATE(event_io_map, event_map_entry, map_node, hashsocket, eqsocket,
 			0.5, mm_malloc, mm_realloc, mm_free)
 
+/* ----------------------------------------------------------------------*/
+/**
+ * @brief:GET_IO_SLOT   获取节点信息 宏
+ *
+ * @param:x             存储节点信息的指针
+ * @param:map           hash_map 指针
+ * @param:slot          slot 元素，一般为fd
+ * @param:type          节点再map中的field域type
+ */
+/* ----------------------------------------------------------------------*/
 #define GET_IO_SLOT(x, map, slot, type)					\
-	do {								\
-		struct event_map_entry _key, *_ent;			\
-		_key.fd = slot;						\
+	do {								                \
+		struct event_map_entry _key, *_ent;			    \
+		_key.fd = slot;						            \
 		_ent = HT_FIND(event_io_map, map, &_key);		\
 		(x) = _ent ? &_ent->ent.type : NULL;			\
 	} while (0);
 
+
+/* ----------------------------------------------------------------------*/
+/**
+ * @brief:GET_IO_SLOT_AND_CTOR  获取节点信息宏
+ *
+ * @param:x                     存储节点信息的指针
+ * @param:map                   hash_map 指针
+ * @param:slot                  slot元素，一般为fd
+ * @param:type                  节点再map中的field域type
+ * @param:ctor                  x所代表类型数据初始化函数
+ * @param:fdinfo_len            扩展数据所需要的空间
+ */
+/* ----------------------------------------------------------------------*/
 #define GET_IO_SLOT_AND_CTOR(x, map, slot, type, ctor, fdinfo_len)	\
 	do {								\
 		struct event_map_entry _key, *_ent;			\
@@ -136,11 +174,17 @@ HT_GENERATE(event_io_map, event_map_entry, map_node, hashsocket, eqsocket,
 		(x) = &_ent->ent.type;					\
 	} while (0)
 
+/*
+ * 初始化 event_io_map
+ */
 void evmap_io_initmap(struct event_io_map *ctx)
 {
 	HT_INIT(event_io_map, ctx);
 }
 
+/*
+ * 清理 event_io_map
+ */
 void evmap_io_clear(struct event_io_map *ctx)
 {
 	struct event_map_entry **ent, **next, *this;
@@ -182,11 +226,13 @@ void evmap_io_clear(struct event_io_map *ctx)
 #define GET_IO_SLOT_AND_CTOR(x,map,slot,type,ctor,fdinfo_len)	\
 	GET_SIGNAL_SLOT_AND_CTOR(x,map,slot,type,ctor,fdinfo_len)
 #define FDINFO_OFFSET sizeof(struct evmap_io)
+
 void
 evmap_io_initmap(struct event_io_map* ctx)
 {
 	evmap_signal_initmap(ctx);
 }
+
 void
 evmap_io_clear(struct event_io_map* ctx)
 {
@@ -197,6 +243,9 @@ evmap_io_clear(struct event_io_map* ctx)
 
 /** Expand 'map' with new entries of width 'msize' until it is big enough
 	to store a value in 'slot'.
+ */
+/*
+ * 扩容 map,直到空间足已容纳所有元素
  */
 static int
 evmap_make_space(struct event_signal_map *map, int slot, int msize)
@@ -222,6 +271,9 @@ evmap_make_space(struct event_signal_map *map, int slot, int msize)
 	return (0);
 }
 
+/*
+ * 初始化信号量map
+ */
 void
 evmap_signal_initmap(struct event_signal_map *ctx)
 {
@@ -229,6 +281,9 @@ evmap_signal_initmap(struct event_signal_map *ctx)
 	ctx->entries = NULL;
 }
 
+/*
+ * 清理信号量map
+ */
 void
 evmap_signal_clear(struct event_signal_map *ctx)
 {
@@ -248,6 +303,9 @@ evmap_signal_clear(struct event_signal_map *ctx)
 /* code specific to file descriptors */
 
 /** Constructor for struct evmap_io */
+/*
+ * 初始化 evmap_io 
+ */
 static void
 evmap_io_init(struct evmap_io *entry)
 {
@@ -283,6 +341,7 @@ evmap_io_add(struct event_base *base, evutil_socket_t fd, struct event *ev)
 			return (-1);
 	}
 #endif
+    /*获取该fd的事件list，于 ctx 中保存 */
 	GET_IO_SLOT_AND_CTOR(ctx, io, fd, evmap_io, evmap_io_init,
 						 evsel->fdinfo_len);
 
@@ -295,7 +354,7 @@ evmap_io_add(struct event_base *base, evutil_socket_t fd, struct event *ev)
 		old |= EV_WRITE;
 
 	if (ev->ev_events & EV_READ) {
-		if (++nread == 1)
+		if (++nread == 1)                   //为1，代表该事件没有注册过
 			res |= EV_READ;
 	}
 	if (ev->ev_events & EV_WRITE) {
@@ -307,6 +366,7 @@ evmap_io_add(struct event_base *base, evutil_socket_t fd, struct event *ev)
 		    (int)fd);
 		return -1;
 	}
+    /*事件类型(ET模式)是否一致*/
 	if (EVENT_DEBUG_MODE_IS_ON() &&
 	    (old_ev = TAILQ_FIRST(&ctx->events)) &&
 	    (old_ev->ev_events&EV_ET) != (ev->ev_events&EV_ET)) {
@@ -317,7 +377,7 @@ evmap_io_add(struct event_base *base, evutil_socket_t fd, struct event *ev)
 
     /*有事件，添加事件*/
 	if (res) {
-		void *extra = ((char*)ctx) + sizeof(struct evmap_io);
+		void *extra = ((char*)ctx) + sizeof(struct evmap_io);           //扩容信息，即附加信息
 		/* XXX(niels): we cannot mix edge-triggered and
 		 * level-triggered, we should probably assert on
 		 * this. */
@@ -336,6 +396,9 @@ evmap_io_add(struct event_base *base, evutil_socket_t fd, struct event *ev)
 
 /* return -1 on error, 0 on success if nothing changed in the event backend,
  * and 1 on success if something did. */
+/*
+ * 从 event_base 中删除时间 ev
+ */
 int
 evmap_io_del(struct event_base *base, evutil_socket_t fd, struct event *ev)
 {
@@ -354,7 +417,7 @@ evmap_io_del(struct event_base *base, evutil_socket_t fd, struct event *ev)
 	if (fd >= io->nentries)
 		return (-1);
 #endif
-
+    /*获取节点信息*/
 	GET_IO_SLOT(ctx, io, fd, evmap_io);
 
 	nread = ctx->nread;
@@ -390,6 +453,9 @@ evmap_io_del(struct event_base *base, evutil_socket_t fd, struct event *ev)
 	return (retval);
 }
 
+/*
+ * 置描述符为 fd 的事件类型 events 为活跃状态
+ */
 void
 evmap_io_active(struct event_base *base, evutil_socket_t fd, short events)
 {
@@ -402,6 +468,7 @@ evmap_io_active(struct event_base *base, evutil_socket_t fd, short events)
 #endif
 	GET_IO_SLOT(ctx, io, fd, evmap_io);
 
+    /*遍历事件列表，将符合的事件类型ev至于active队列*/
 	EVUTIL_ASSERT(ctx);
 	TAILQ_FOREACH(ev, &ctx->events, ev_io_next) {
 		if (ev->ev_events & events)
@@ -411,6 +478,9 @@ evmap_io_active(struct event_base *base, evutil_socket_t fd, short events)
 
 /* code specific to signals */
 
+/*
+ * 初始化信号量事件
+ */
 static void
 evmap_signal_init(struct evmap_signal *entry)
 {
@@ -418,6 +488,9 @@ evmap_signal_init(struct evmap_signal *entry)
 }
 
 
+/*
+ * 添加信号量事件
+ */
 int
 evmap_signal_add(struct event_base *base, int sig, struct event *ev)
 {
@@ -438,12 +511,15 @@ evmap_signal_add(struct event_base *base, int sig, struct event *ev)
 		    == -1)
 			return (-1);
 	}
-
+    /*放入事件队列中*/
 	TAILQ_INSERT_TAIL(&ctx->events, ev, ev_signal_next);
 
 	return (1);
 }
 
+/*
+ * 删除信号量事件
+ */
 int
 evmap_signal_del(struct event_base *base, int sig, struct event *ev)
 {
@@ -456,16 +532,20 @@ evmap_signal_del(struct event_base *base, int sig, struct event *ev)
 
 	GET_SIGNAL_SLOT(ctx, map, sig, evmap_signal);
 
+    /*信号量相同，删除*/
 	if (TAILQ_FIRST(&ctx->events) == TAILQ_LAST(&ctx->events, event_list)) {
 		if (evsel->del(base, ev->ev_fd, 0, EV_SIGNAL, NULL) == -1)
 			return (-1);
 	}
-
+    /*从事件队列中删除 */
 	TAILQ_REMOVE(&ctx->events, ev, ev_signal_next);
 
 	return (1);
 }
 
+/*
+ * 将信号量事件至于活跃
+ */
 void
 evmap_signal_active(struct event_base *base, evutil_socket_t sig, int ncalls)
 {
@@ -476,10 +556,14 @@ evmap_signal_active(struct event_base *base, evutil_socket_t sig, int ncalls)
 	EVUTIL_ASSERT(sig < map->nentries);
 	GET_SIGNAL_SLOT(ctx, map, sig, evmap_signal);
 
+    /*该信号量所有事件都至于活跃*/
 	TAILQ_FOREACH(ev, &ctx->events, ev_signal_next)
 		event_active_nolock(ev, EV_SIGNAL, ncalls);
 }
 
+/*
+ * 获取事件的扩展信息
+ */
 void *
 evmap_io_get_fdinfo(struct event_io_map *map, evutil_socket_t fd)
 {
@@ -499,6 +583,9 @@ struct event_changelist_fdinfo {
 		       * a no-such-element */
 };
 
+/*
+ * 初始化 changelist
+ */
 void
 event_changelist_init(struct event_changelist *changelist)
 {
@@ -508,6 +595,9 @@ event_changelist_init(struct event_changelist *changelist)
 }
 
 /** Helper: return the changelist_fdinfo corresponding to a given change. */
+/*
+ * 获取指定 change 的扩展信息
+ */
 static inline struct event_changelist_fdinfo *
 event_change_get_fdinfo(struct event_base *base,
     const struct event_change *change)
@@ -527,6 +617,9 @@ event_change_get_fdinfo(struct event_base *base,
 
 #ifdef DEBUG_CHANGELIST
 /** Make sure that the changelist is consistent with the evmap structures. */
+/*
+ * 校验 changelist 中的事件是否存在
+ */
 static void
 event_changelist_check(struct event_base *base)
 {
@@ -560,6 +653,9 @@ event_changelist_check(struct event_base *base)
 #define event_changelist_check(base)  ((void)0)
 #endif
 
+/*
+ * 删除所有 changelist 信息
+ */
 void
 event_changelist_remove_all(struct event_changelist *changelist,
     struct event_base *base)
@@ -581,6 +677,9 @@ event_changelist_remove_all(struct event_changelist *changelist,
 	event_changelist_check(base);
 }
 
+/*
+ * 释放 changelist 空间
+ */
 void
 event_changelist_freemem(struct event_changelist *changelist)
 {
@@ -590,6 +689,9 @@ event_changelist_freemem(struct event_changelist *changelist)
 }
 
 /** Increase the size of 'changelist' to hold more changes. */
+/*
+ * 扩展 changelist 空间
+ */
 static int
 event_changelist_grow(struct event_changelist *changelist)
 {
@@ -615,6 +717,9 @@ event_changelist_grow(struct event_changelist *changelist)
 /** Return a pointer to the changelist entry for the file descriptor or signal
  * 'fd', whose fdinfo is 'fdinfo'.  If none exists, construct it, setting its
  * old_events field to old_events.
+ */
+/*
+ * 获取一个 changelist entry
  */
 static struct event_change *
 event_changelist_get_or_construct(struct event_changelist *changelist,
@@ -647,6 +752,9 @@ event_changelist_get_or_construct(struct event_changelist *changelist,
 	return change;
 }
 
+/*
+ * 添加一个 change 至 changelist 中
+ */
 int
 event_changelist_add(struct event_base *base, evutil_socket_t fd, short old, short events,
     void *p)
@@ -657,6 +765,7 @@ event_changelist_add(struct event_base *base, evutil_socket_t fd, short old, sho
 
 	event_changelist_check(base);
 
+    /* 获取change */
 	change = event_changelist_get_or_construct(changelist, fd, old, fdinfo);
 	if (!change)
 		return -1;
@@ -678,6 +787,9 @@ event_changelist_add(struct event_base *base, evutil_socket_t fd, short old, sho
 	return (0);
 }
 
+/*
+ * 删除一个 change
+ */
 int
 event_changelist_del(struct event_base *base, evutil_socket_t fd, short old, short events,
     void *p)
@@ -729,6 +841,9 @@ event_changelist_del(struct event_base *base, evutil_socket_t fd, short old, sho
 	return (0);
 }
 
+/*
+ * evmap 校验
+ */
 void
 evmap_check_integrity(struct event_base *base)
 {
