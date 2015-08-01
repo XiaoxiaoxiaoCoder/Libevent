@@ -52,9 +52,9 @@ extern "C" {
 #define ev_pncalls	_ev.ev_signal.ev_pncalls
 
 /* Possible values for ev_closure in struct event. */
-#define EV_CLOSURE_NONE 0
-#define EV_CLOSURE_SIGNAL 1
-#define EV_CLOSURE_PERSIST 2
+#define EV_CLOSURE_NONE 0                   //非永久性事件
+#define EV_CLOSURE_SIGNAL 1                 //IO事件
+#define EV_CLOSURE_PERSIST 2                //永久事件
 
 /** Structure to define the backend of a given event_base. */
 /*
@@ -150,16 +150,23 @@ struct event_signal_map {
  * events waiting for a timeout wait on a minheap.  Sometimes, however, a
  * queue can be faster.
  **/
+/*
+ * 相同超时时间的事件组合成一个链表结构体
+ */
 struct common_timeout_list {
 	/* List of events currently waiting in the queue. */
+    /*事件链表*/
 	struct event_list events;
 	/* 'magic' timeval used to indicate the duration of events in this
 	 * queue. */
+    /*魔幻数值*/
 	struct timeval duration;
 	/* Event that triggers whenever one of the events in the queue is
 	 * ready to activate */
+    /*即将超时的事件*/
 	struct event timeout_event;
 	/* The event_base that this timeout list is part of */
+    /*事件所属base*/
 	struct event_base *base;
 };
 
@@ -209,8 +216,10 @@ struct event_base {
 	/** Number of virtual events */
 	int virtual_event_count;
 	/** Number of total events added to this event_base */
+    /*加入event_base的事件数*/
 	int event_count;
 	/** Number of total events active in this event_base */
+    /*在该 event_base 中活跃的事件数量*/
 	int event_count_active;
 
 	/** Set if we should terminate the loop once we're done processing
@@ -240,16 +249,20 @@ struct event_base {
     /*活跃事件优先级队列*/
 	struct event_list *activequeues;
 	/** The length of the activequeues array */
+    /*优先级队列中优先级个数*/
 	int nactivequeues;
 
 	/* common timeout logic */
 
 	/** An array of common_timeout_list* for all of the common timeout
 	 * values we know. */
+    /*相同超时事件的时间链表*/
 	struct common_timeout_list **common_timeout_queues;
 	/** The number of entries used in common_timeout_queues */
+    /*时间链表中事件的个数*/
 	int n_common_timeouts;
 	/** The total size of common_timeout_queues. */
+    /*时间链表的大小*/
 	int n_common_timeouts_allocated;
 
 	/** List of defered_cb that are active.  We run these after the active
@@ -257,7 +270,7 @@ struct event_base {
 	struct deferred_cb_queue defer_queue;
 
 	/** Mapping from file descriptors to enabled (added) events */
-    /*io_map 事件 存储结构体*/
+    /*io_map 事件 存储结构体, 记录一个 fd 上的事件，map中每个元素是一个 lits */
 	struct event_io_map io;
 
 	/** Mapping from signal numbers to enabled (added) events. */

@@ -93,8 +93,8 @@ struct event {
 	/* for managing timeouts */
 	union {
 		TAILQ_ENTRY(event) ev_next_with_common_timeout;
-		int min_heap_idx;
-	} ev_timeout_pos;
+		int min_heap_idx;                                           //小堆中的下标
+	} ev_timeout_pos;                                               //时间
 	evutil_socket_t ev_fd;                                          //事件 fd
 
 	struct event_base *ev_base;                                     //event_base 指针
@@ -111,18 +111,18 @@ struct event {
         /*信号量事件*/
 		struct {
 			TAILQ_ENTRY(event) ev_signal_next;
-			short ev_ncalls;
+			short ev_ncalls;                                        //目前还不知道是干什么用的
 			/* Allows deletes in callback */
 			short *ev_pncalls;
 		} ev_signal;
 	} _ev;
 
 	short ev_events;                                                //事件类型，读事件或写事件
-	short ev_res;		/* result passed to event callback */
-	short ev_flags;
+	short ev_res;		/* result passed to event callback */       //即回调时候执行的事件集合
+	short ev_flags;                                                 //事件当前标志
 	ev_uint8_t ev_pri;	/* smaller numbers are higher priority */   //事件优先级
 	ev_uint8_t ev_closure;                                          //事件是否终止
-	struct timeval ev_timeout;
+	struct timeval ev_timeout;                                      //超时时间
 
 	/* allows us to adopt for different types of events */
 	void (*ev_callback)(evutil_socket_t, short, void *arg);         //事件回调函数
