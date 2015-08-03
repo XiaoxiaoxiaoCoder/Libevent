@@ -63,12 +63,18 @@ static void event_exit(int errcode) EV_NORETURN;
 
 static event_fatal_cb fatal_fn = NULL;
 
+/*
+ * 设置错误发生的时候回调函数
+ */
 void
 event_set_fatal_callback(event_fatal_cb cb)
 {
 	fatal_fn = cb;
 }
 
+/*
+ * event 结束
+ */
 static void
 event_exit(int errcode)
 {
@@ -81,6 +87,9 @@ event_exit(int errcode)
 		exit(errcode);
 }
 
+/*
+ * 错误日志
+ */
 void
 event_err(int eval, const char *fmt, ...)
 {
@@ -92,6 +101,9 @@ event_err(int eval, const char *fmt, ...)
 	event_exit(eval);
 }
 
+/*
+ * 警告日志
+ */
 void
 event_warn(const char *fmt, ...)
 {
@@ -102,6 +114,9 @@ event_warn(const char *fmt, ...)
 	va_end(ap);
 }
 
+/*
+ * socket err 日志
+ */
 void
 event_sock_err(int eval, evutil_socket_t sock, const char *fmt, ...)
 {
@@ -114,6 +129,9 @@ event_sock_err(int eval, evutil_socket_t sock, const char *fmt, ...)
 	event_exit(eval);
 }
 
+/*
+ * socket 警告日志
+ */
 void
 event_sock_warn(evutil_socket_t sock, const char *fmt, ...)
 {
@@ -125,6 +143,9 @@ event_sock_warn(evutil_socket_t sock, const char *fmt, ...)
 	va_end(ap);
 }
 
+/*
+ * 错误日志
+ */
 void
 event_errx(int eval, const char *fmt, ...)
 {
@@ -136,6 +157,9 @@ event_errx(int eval, const char *fmt, ...)
 	event_exit(eval);
 }
 
+/*
+ * 警告日志
+ */
 void
 event_warnx(const char *fmt, ...)
 {
@@ -146,6 +170,9 @@ event_warnx(const char *fmt, ...)
 	va_end(ap);
 }
 
+/*
+ * msg 日志
+ */
 void
 event_msgx(const char *fmt, ...)
 {
@@ -156,6 +183,9 @@ event_msgx(const char *fmt, ...)
 	va_end(ap);
 }
 
+/*
+ * debug 日志
+ */
 void
 _event_debugx(const char *fmt, ...)
 {
@@ -166,6 +196,9 @@ _event_debugx(const char *fmt, ...)
 	va_end(ap);
 }
 
+/*
+ * 真正日志接口函数
+ */
 static void
 _warn_helper(int severity, const char *errstr, const char *fmt, va_list ap)
 {
@@ -177,6 +210,7 @@ _warn_helper(int severity, const char *errstr, const char *fmt, va_list ap)
 	else
 		buf[0] = '\0';
 
+    /*错误信息*/
 	if (errstr) {
 		len = strlen(buf);
 		if (len < sizeof(buf) - 3) {
@@ -189,15 +223,22 @@ _warn_helper(int severity, const char *errstr, const char *fmt, va_list ap)
 
 static event_log_cb log_fn = NULL;
 
+/*
+ * 日志回调函数
+ */
 void
 event_set_log_callback(event_log_cb cb)
 {
 	log_fn = cb;
 }
 
+/*
+ * 打日志函数
+ */
 static void
 event_log(int severity, const char *msg)
 {
+    /*有日志回调，则直接日志回调，不判断日志级别*/
 	if (log_fn)
 		log_fn(severity, msg);
 	else {

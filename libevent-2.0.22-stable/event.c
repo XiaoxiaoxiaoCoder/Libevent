@@ -2477,6 +2477,9 @@ event_deferred_cb_schedule(struct deferred_cb_queue *queue,
 	UNLOCK_DEFERRED_QUEUE(queue);
 }
 
+/*
+ * 获取下一个超时事件的超时时间
+ */
 static int
 timeout_next(struct event_base *base, struct timeval **tv_p)
 {
@@ -2486,6 +2489,7 @@ timeout_next(struct event_base *base, struct timeval **tv_p)
 	struct timeval *tv = *tv_p;
 	int res = 0;
 
+    /*最近的超时事件*/
 	ev = min_heap_top(&base->timeheap);
 
 	if (ev == NULL) {
@@ -2499,11 +2503,12 @@ timeout_next(struct event_base *base, struct timeval **tv_p)
 		goto out;
 	}
 
+    /*超时时间与当前时间对比*/
 	if (evutil_timercmp(&ev->ev_timeout, &now, <=)) {
 		evutil_timerclear(tv);
 		goto out;
 	}
-
+    /*超时时间还剩多久超时触发*/
 	evutil_timersub(&ev->ev_timeout, &now, tv);
 
 	EVUTIL_ASSERT(tv->tv_sec >= 0);
