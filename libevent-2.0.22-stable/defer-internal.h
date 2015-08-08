@@ -39,18 +39,28 @@ typedef void (*deferred_cb_fn)(struct deferred_cb *, void *);
 
 /** A deferred_cb is a callback that can be scheduled to run as part of
  * an event_base's event_loop, rather than running immediately. */
+/*
+ * 一个延时事件结构体描述
+ */
 struct deferred_cb {
 	/** Links to the adjacent active (pending) deferred_cb objects. */
+    /*以链表形式存储*/
 	TAILQ_ENTRY (deferred_cb) cb_next;
 	/** True iff this deferred_cb is pending in an event_base. */
+    /*是否添加只 event_base 中 */
 	unsigned queued : 1;
 	/** The function to execute when the callback runs. */
+    /*回调函数*/
 	deferred_cb_fn cb;
 	/** The function's second argument. */
+    /*回调函数的参数*/
 	void *arg;
 };
 
 /** A deferred_cb_queue is a list of deferred_cb that we can add to and run. */
+/*
+ * 延时事件队列
+ */
 struct deferred_cb_queue {
 	/** Lock used to protect the queue. */
 	void *lock;

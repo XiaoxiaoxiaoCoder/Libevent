@@ -353,16 +353,20 @@ detect_monotonic(void)
  * clock_gettime or gettimeofday as appropriate to find out the right time.
  * Return 0 on success, -1 on failure.
  */
+/*
+ * 获取当前时间
+ */
 static int
 gettime(struct event_base *base, struct timeval *tp)
 {
 	EVENT_BASE_ASSERT_LOCKED(base);
 
+    /*有缓存的时间，直接返回*/
 	if (base->tv_cache.tv_sec) {
 		*tp = base->tv_cache;
 		return (0);
 	}
-
+    /*获取时间*/
 #if defined(_EVENT_HAVE_CLOCK_GETTIME) && defined(CLOCK_MONOTONIC)
 	if (use_monotonic) {
 		struct timespec	ts;
@@ -387,6 +391,9 @@ gettime(struct event_base *base, struct timeval *tp)
 	return (evutil_gettimeofday(tp, NULL));
 }
 
+/*
+ * 从指定的 base time cache 获取时间
+ */
 int
 event_base_gettimeofday_cached(struct event_base *base, struct timeval *tv)
 {
@@ -398,7 +405,7 @@ event_base_gettimeofday_cached(struct event_base *base, struct timeval *tv)
 	}
 
 	EVBASE_ACQUIRE_LOCK(base, th_base_lock);
-	if (base->tv_cache.tv_sec == 0) {
+	if (base->tv_cache.tv_sec == 0) {                               //cache 时间还未赋值
 		r = evutil_gettimeofday(tv, NULL);
 	} else {
 #if defined(_EVENT_HAVE_CLOCK_GETTIME) && defined(CLOCK_MONOTONIC)
@@ -420,6 +427,9 @@ clear_time_cache(struct event_base *base)
 }
 
 /** Replace the cached time in 'base' with the current time. */
+/*
+ * 赋值base的 cache time
+ */
 static inline void
 update_time_cache(struct event_base *base)
 {
@@ -446,6 +456,9 @@ event_init(void)
 	return (base);
 }
 
+/*
+ * 初始化一个 event base
+ */
 struct event_base *
 event_base_new(void)
 {
@@ -460,6 +473,10 @@ event_base_new(void)
 
 /** Return true iff 'method' is the name of a method that 'cfg' tells us to
  * avoid. */
+/*
+ * 检查方法 method 是在配置 cfg 配置为禁止
+ * 如果禁止则返回 1, 否则返回 0
+ */
 static int
 event_config_is_avoided_method(const struct event_config *cfg,
     const char *method)
@@ -476,6 +493,10 @@ event_config_is_avoided_method(const struct event_config *cfg,
 }
 
 /** Return true iff 'method' is disabled according to the environment. */
+/*
+ * 检查 method 是否被禁止
+ * 如果被禁止返回 1，否则返回 0
+ */
 static int
 event_is_method_disabled(const char *name)
 {
@@ -490,12 +511,18 @@ event_is_method_disabled(const char *name)
 	return (evutil_getenv(environment) != NULL);
 }
 
+/*
+ * 返回 event base 所支持的后端实现方式的特性
+ */
 int
 event_base_get_features(const struct event_base *base)
 {
 	return base->evsel->features;
 }
 
+/*
+ * 初始化延时事件队列
+ */
 void
 event_deferred_cb_queue_init(struct deferred_cb_queue *cb)
 {
@@ -504,6 +531,9 @@ event_deferred_cb_queue_init(struct deferred_cb_queue *cb)
 }
 
 /** Helper for the deferred_cb queue: wake up the event base. */
+/*
+ * 当从另外一个线程中添加事件至延时事件队列中通知 base 的函数接口
+ */
 static void
 notify_base_cbq_callback(struct deferred_cb_queue *cb, void *baseptr)
 {
@@ -512,6 +542,9 @@ notify_base_cbq_callback(struct deferred_cb_queue *cb, void *baseptr)
 		evthread_notify_base(base);
 }
 
+/*
+ * 获取延时事件队列
+ */
 struct deferred_cb_queue *
 event_base_get_deferred_cb_queue(struct event_base *base)
 {
@@ -551,6 +584,9 @@ event_disable_debug_mode(void)
 }
 #endif
 
+/*
+ * 根据配置项 cfg 初始化 event_base 并返回 base
+ */
 struct event_base *
 event_base_new_with_config(const struct event_config *cfg)
 {
@@ -561,14 +597,16 @@ event_base_new_with_config(const struct event_config *cfg)
 #ifndef _EVENT_DISABLE_DEBUG_MODE
 	event_debug_mode_too_late = 1;
 #endif
-
+    /*生成event_base*/
 	if ((base = mm_calloc(1, sizeof(struct event_base))) == NULL) {
 		event_warn("%s: calloc", __func__);
 		return NULL;
 	}
+    /*更新 cache time*/
 	detect_monotonic();
 	gettime(base, &base->event_tv);
 
+    /*初始化最小堆和事件队列*/
 	min_heap_ctor(&base->timeheap);
 	TAILQ_INIT(&base->eventqueue);
 	base->sig.ev_signal_pair[0] = -1;
@@ -576,12 +614,14 @@ event_base_new_with_config(const struct event_config *cfg)
 	base->th_notify_fd[0] = -1;
 	base->th_notify_fd[1] = -1;
 
+    /*初始化延时事件队列*/
 	event_deferred_cb_queue_init(&base->defer_queue);
 	base->defer_queue.notify_fn = notify_base_cbq_callback;
 	base->defer_queue.notify_arg = base;
 	if (cfg)
 		base->flags = cfg->flags;
 
+    /*初始化 event io map 和 signal map*/
 	evmap_io_initmap(&base->io);
 	evmap_signal_initmap(&base->sigmap);
 	event_changelist_init(&base->changelist);
@@ -604,7 +644,7 @@ event_base_new_with_config(const struct event_config *cfg)
 
 		/* also obey the environment variables */
 		if (should_check_environment &&
-		    event_is_method_disabled(eventops[i]->name))
+		    event_is_method_disabled(eventops[i]->name))                //系统是否支持的后端实现方式
 			continue;
 
 		base->evsel = eventops[i];
@@ -624,7 +664,7 @@ event_base_new_with_config(const struct event_config *cfg)
 		event_msgx("libevent using: %s", base->evsel->name);
 
 	/* allocate a single active event queue */
-	if (event_base_priority_init(base, 1) < 0) {
+	if (event_base_priority_init(base, 1) < 0) {                        //初始化优先级
 		event_base_free(base);
 		return NULL;
 	}
@@ -656,6 +696,9 @@ event_base_new_with_config(const struct event_config *cfg)
 	return (base);
 }
 
+/*
+ * 启动 iocp
+ */
 int
 event_base_start_iocp(struct event_base *base, int n_cpus)
 {
@@ -673,6 +716,9 @@ event_base_start_iocp(struct event_base *base, int n_cpus)
 #endif
 }
 
+/*
+ * 停止 iocp
+ */
 void
 event_base_stop_iocp(struct event_base *base)
 {
@@ -687,6 +733,9 @@ event_base_stop_iocp(struct event_base *base)
 #endif
 }
 
+/*
+ * 释放 event_base
+ */
 void
 event_base_free(struct event_base *base)
 {
@@ -725,6 +774,7 @@ event_base_free(struct event_base *base)
 	}
 
 	/* Delete all non-internal events. */
+    /*删除所有事件*/
 	for (ev = TAILQ_FIRST(&base->eventqueue); ev; ) {
 		struct event *next = TAILQ_NEXT(ev, ev_next);
 		if (!(ev->ev_flags & EVLIST_INTERNAL)) {
@@ -733,10 +783,12 @@ event_base_free(struct event_base *base)
 		}
 		ev = next;
 	}
+    /*删除所有定时事件*/
 	while ((ev = min_heap_top(&base->timeheap)) != NULL) {
 		event_del(ev);
 		++n_deleted;
 	}
+    /*删除common out 定时事件*/
 	for (i = 0; i < base->n_common_timeouts; ++i) {
 		struct common_timeout_list *ctl =
 		    base->common_timeout_queues[i];
@@ -755,7 +807,7 @@ event_base_free(struct event_base *base)
 	}
 	if (base->common_timeout_queues)
 		mm_free(base->common_timeout_queues);
-
+    /*活跃的事件队列删除*/
 	for (i = 0; i < base->nactivequeues; ++i) {
 		for (ev = TAILQ_FIRST(&base->activequeues[i]); ev; ) {
 			struct event *next = TAILQ_NEXT(ev, ev_active_next);
@@ -770,13 +822,14 @@ event_base_free(struct event_base *base)
 	if (n_deleted)
 		event_debug(("%s: %d events were still set in base",
 			__func__, n_deleted));
-
+    /*析构后端实现方式*/
 	if (base->evsel != NULL && base->evsel->dealloc != NULL)
 		base->evsel->dealloc(base);
 
 	for (i = 0; i < base->nactivequeues; ++i)
 		EVUTIL_ASSERT(TAILQ_EMPTY(&base->activequeues[i]));
 
+    /*析构相关的数据结构*/
 	EVUTIL_ASSERT(min_heap_empty(&base->timeheap));
 	min_heap_dtor(&base->timeheap);
 
@@ -795,6 +848,9 @@ event_base_free(struct event_base *base)
 }
 
 /* reinitialize the event base after a fork */
+/*
+ * 重新初始化 event_base
+ */
 int
 event_reinit(struct event_base *base)
 {
@@ -890,6 +946,9 @@ done:
 	return (res);
 }
 
+/*
+ * 获取系统支持的后端实现方式
+ */
 const char **
 event_get_supported_methods(void)
 {
@@ -922,6 +981,9 @@ event_get_supported_methods(void)
 	return (methods);
 }
 
+/*
+ * 初始化一个 config
+ */
 struct event_config *
 event_config_new(void)
 {
@@ -935,6 +997,9 @@ event_config_new(void)
 	return (cfg);
 }
 
+/*
+ * 释放一个 config entry 结构体
+ */
 static void
 event_config_entry_free(struct event_config_entry *entry)
 {
@@ -943,6 +1008,9 @@ event_config_entry_free(struct event_config_entry *entry)
 	mm_free(entry);
 }
 
+/*
+ * 释放 config
+ */
 void
 event_config_free(struct event_config *cfg)
 {
@@ -955,6 +1023,9 @@ event_config_free(struct event_config *cfg)
 	mm_free(cfg);
 }
 
+/*
+ * 设置config flag
+ */
 int
 event_config_set_flag(struct event_config *cfg, int flag)
 {
@@ -964,6 +1035,9 @@ event_config_set_flag(struct event_config *cfg, int flag)
 	return 0;
 }
 
+/*
+ * 设置config 禁止的后端实现方式
+ */
 int
 event_config_avoid_method(struct event_config *cfg, const char *method)
 {
@@ -981,6 +1055,9 @@ event_config_avoid_method(struct event_config *cfg, const char *method)
 	return (0);
 }
 
+/*
+ * 设置配置要求的后端实现方式需要的特性
+ */
 int
 event_config_require_features(struct event_config *cfg,
     int features)
@@ -991,6 +1068,9 @@ event_config_require_features(struct event_config *cfg,
 	return (0);
 }
 
+/*
+ * 设置cpu亲和
+ */
 int
 event_config_set_num_cpus_hint(struct event_config *cfg, int cpus)
 {
@@ -1000,6 +1080,9 @@ event_config_set_num_cpus_hint(struct event_config *cfg, int cpus)
 	return (0);
 }
 
+/*
+ * 初始化优先级队列
+ */
 int
 event_priority_init(int npriorities)
 {
@@ -1199,7 +1282,7 @@ common_timeout_callback(evutil_socket_t fd, short what, void *arg)
 
 /*
  * 初始化base common timeout 方式
- * 返回值为一个相对的超声时间值
+ * 返回值为一个相对的超时时间值
  */
 const struct timeval *
 event_base_init_common_timeout(struct event_base *base,
@@ -1337,9 +1420,9 @@ event_persist_closure(struct event_base *base, struct event *ev)
 
 	// Save our callback before we release the lock
 	evcb_callback = ev->ev_callback;
-        evcb_fd = ev->ev_fd;
-        evcb_res = ev->ev_res;
-        evcb_arg = ev->ev_arg;
+    evcb_fd = ev->ev_fd;
+    evcb_res = ev->ev_res;
+    evcb_arg = ev->ev_arg;
 
 	// Release the lock
  	EVBASE_RELEASE_LOCK(base, th_base_lock);
@@ -1426,6 +1509,9 @@ event_process_active_single_queue(struct event_base *base,
    the lock on 'queue'; releases the lock around 'queue' for each deferred_cb
    we process.
  */
+/*
+ * 处理延时事件
+ */
 static int
 event_process_deferred_callbacks(struct deferred_cb_queue *queue, int *breakptr)
 {
@@ -1482,7 +1568,7 @@ event_process_active(struct event_base *base)
 			 * were internal.  Continue. */
 		}
 	}
-
+    /*处理下延时事件*/
 	event_process_deferred_callbacks(&base->defer_queue,&base->event_break);
 	base->event_running_priority = -1;
 	return c;
@@ -1492,18 +1578,27 @@ event_process_active(struct event_base *base)
  * Wait continuously for events.  We exit only if no events are left.
  */
 
+/*
+ * 事件循环
+ */
 int
 event_dispatch(void)
 {
 	return (event_loop(0));
 }
 
+/*
+ * 事件循环
+ */
 int
 event_base_dispatch(struct event_base *event_base)
 {
 	return (event_base_loop(event_base, 0));
 }
 
+/*
+ * 获取 base 的后端实现方式
+ */
 const char *
 event_base_get_method(const struct event_base *base)
 {
@@ -1729,6 +1824,9 @@ event_once(evutil_socket_t fd, short events,
 }
 
 /* Schedules an event once */
+/*
+ * 一次性 event 事件
+ */
 int
 event_base_once(struct event_base *base, evutil_socket_t fd, short events,
     void (*callback)(evutil_socket_t, short, void *),
@@ -1828,6 +1926,9 @@ event_assign(struct event *ev, struct event_base *base, evutil_socket_t fd, shor
 	return 0;
 }
 
+/*
+ * 设置event 所属的 event_base
+ */
 int
 event_base_set(struct event_base *base, struct event *ev)
 {
@@ -1902,6 +2003,9 @@ event_debug_unassign(struct event *ev)
  * changing the priority is going to fail.
  */
 
+/*
+ * 设置事件的优先级
+ */
 int
 event_priority_set(struct event *ev, int pri)
 {
@@ -1921,6 +2025,9 @@ event_priority_set(struct event *ev, int pri)
  * Checks if a specific event is pending or scheduled.
  */
 
+/*
+ * 检查 event 是否已经 pending 或者 scheduled
+ */
 int
 event_pending(const struct event *ev, short event, struct timeval *tv)
 {
@@ -1960,6 +2067,9 @@ event_pending(const struct event *ev, short event, struct timeval *tv)
 	return (flags & event);
 }
 
+/*
+ * 检查event 是否初始化过
+ */
 int
 event_initialized(const struct event *ev)
 {
@@ -1968,7 +2078,9 @@ event_initialized(const struct event *ev)
 
 	return 1;
 }
-
+/*
+ * 获取 event 相关信息
+ */
 void
 event_get_assignment(const struct event *event, struct event_base **base_out, evutil_socket_t *fd_out, short *events_out, event_callback_fn *callback_out, void **arg_out)
 {
@@ -1992,6 +2104,9 @@ event_get_struct_event_size(void)
 	return sizeof(struct event);
 }
 
+/*
+ * 获取 event fd
+ */
 evutil_socket_t
 event_get_fd(const struct event *ev)
 {
@@ -1999,6 +2114,9 @@ event_get_fd(const struct event *ev)
 	return ev->ev_fd;
 }
 
+/*
+ * 获取 event 所属 base
+ */
 struct event_base *
 event_get_base(const struct event *ev)
 {
@@ -2006,6 +2124,9 @@ event_get_base(const struct event *ev)
 	return ev->ev_base;
 }
 
+/*
+ * 获取事件类型
+ */
 short
 event_get_events(const struct event *ev)
 {
@@ -2013,6 +2134,9 @@ event_get_events(const struct event *ev)
 	return ev->ev_events;
 }
 
+/*
+ * 获取事件回调
+ */
 event_callback_fn
 event_get_callback(const struct event *ev)
 {
@@ -2020,6 +2144,9 @@ event_get_callback(const struct event *ev)
 	return ev->ev_callback;
 }
 
+/*
+ * 获取事件回调函数参数
+ */
 void *
 event_get_callback_arg(const struct event *ev)
 {
@@ -2363,6 +2490,9 @@ event_del_internal(struct event *ev)
 	return (res);
 }
 
+/*
+ * 将事件至于活跃
+ */
 void
 event_active(struct event *ev, int res, short ncalls)
 {
@@ -2394,7 +2524,7 @@ event_active_nolock(struct event *ev, int res, short ncalls)
 
 
 	/* We get different kinds of events, add them together */
-	if (ev->ev_flags & EVLIST_ACTIVE) {
+	if (ev->ev_flags & EVLIST_ACTIVE) {                         //已经处于活跃队列中了
 		ev->ev_res |= res;
 		return;
 	}
@@ -2426,7 +2556,9 @@ event_active_nolock(struct event *ev, int res, short ncalls)
 	if (EVBASE_NEED_NOTIFY(base))
 		evthread_notify_base(base);
 }
-
+/*
+ * 延时事件初始化
+ */
 void
 event_deferred_cb_init(struct deferred_cb *cb, deferred_cb_fn fn, void *arg)
 {
@@ -2435,6 +2567,9 @@ event_deferred_cb_init(struct deferred_cb *cb, deferred_cb_fn fn, void *arg)
 	cb->arg = arg;
 }
 
+/*
+ * 取消延时事件
+ */
 void
 event_deferred_cb_cancel(struct deferred_cb_queue *queue,
     struct deferred_cb *cb)
@@ -2455,6 +2590,9 @@ event_deferred_cb_cancel(struct deferred_cb_queue *queue,
 	UNLOCK_DEFERRED_QUEUE(queue);
 }
 
+/*
+ * 安排延时事件
+ */
 void
 event_deferred_cb_schedule(struct deferred_cb_queue *queue,
     struct deferred_cb *cb)
@@ -2538,6 +2676,7 @@ timeout_correct(struct event_base *base, struct timeval *tv)
 		return;
 
 	/* Check if time is running backwards */
+    /*检查时间是否向后跑了*/
 	gettime(base, tv);
 
 	if (evutil_timercmp(tv, &base->event_tv, >=)) {
@@ -2578,19 +2717,22 @@ timeout_correct(struct event_base *base, struct timeval *tv)
 }
 
 /* Activate every event whose timeout has elapsed. */
+/*
+ * 处理超时事件
+ */
 static void
 timeout_process(struct event_base *base)
 {
 	/* Caller must hold lock. */
 	struct timeval now;
 	struct event *ev;
-
+    /*是否有超时事件*/
 	if (min_heap_empty(&base->timeheap)) {
 		return;
 	}
 
 	gettime(base, &now);
-
+    /*获取超时事件*/
 	while ((ev = min_heap_top(&base->timeheap))) {
 		if (evutil_timercmp(&ev->ev_timeout, &now, >))
 			break;
@@ -2648,6 +2790,9 @@ event_queue_remove(struct event_base *base, struct event *ev, int queue)
 }
 
 /* Add 'ev' to the common timeout list in 'ev'. */
+/*
+ * 按顺序将 ev 添加至 common timeout list 中
+ */
 static void
 insert_common_timeout_inorder(struct common_timeout_list *ctl,
     struct event *ev)

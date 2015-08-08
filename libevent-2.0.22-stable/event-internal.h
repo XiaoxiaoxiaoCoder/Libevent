@@ -267,6 +267,7 @@ struct event_base {
 
 	/** List of defered_cb that are active.  We run these after the active
 	 * events. */
+    /*延时回调事件队列*/
 	struct deferred_cb_queue defer_queue;
 
 	/** Mapping from file descriptors to enabled (added) events */
@@ -282,6 +283,7 @@ struct event_base {
 	struct event_list eventqueue; 
 
 	/** Stored timeval; used to detect when time is running backwards. */
+    /*后台执行的时间*/
 	struct timeval event_tv;
 
 	/** Priority queue of events with timeouts. */
@@ -289,6 +291,7 @@ struct event_base {
 
 	/** Stored timeval: used to avoid calling gettimeofday/clock_gettime
 	 * too often. */
+    /*缓存时间的cache*/
 	struct timeval tv_cache;
 
 #if defined(_EVENT_HAVE_CLOCK_GETTIME) && defined(CLOCK_MONOTONIC)
@@ -321,7 +324,8 @@ struct event_base {
 #endif
 
 	/** Flags that this base was configured with */
-	enum event_base_config_flag flags;
+    /*配置选项*/
+	enum event_base_config_flag flags; 
 
 	/* Notify main thread to wake up break, etc. */
 	/** True if the base already has a pending notify, and we don't need
@@ -337,6 +341,9 @@ struct event_base {
 	int (*th_notify_fn)(struct event_base *base);
 };
 
+/*
+ * 一个配置项，以链表的形式组织起来
+ */
 struct event_config_entry {
 	TAILQ_ENTRY(event_config_entry) next;
 
@@ -345,12 +352,15 @@ struct event_config_entry {
 
 /** Internal structure: describes the configuration we want for an event_base
  * that we're about to allocate. */
+/*
+ * 配置项结构体
+ */
 struct event_config {
-	TAILQ_HEAD(event_configq, event_config_entry) entries;
+	TAILQ_HEAD(event_configq, event_config_entry) entries;          //配置项链表头
 
 	int n_cpus_hint;
-	enum event_method_feature require_features;
-	enum event_base_config_flag flags;
+	enum event_method_feature require_features;                     //后端方法特性参数
+	enum event_base_config_flag flags;                              //event base 配置特性
 };
 
 /* Internal use only: Functions that might be missing from <sys/queue.h> */
