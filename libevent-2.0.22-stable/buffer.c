@@ -151,6 +151,9 @@ static int evbuffer_readfile(struct evbuffer *buf, evutil_socket_t fd,
 #define evbuffer_readfile evbuffer_read
 #endif
 
+/*
+ * 创建一个 evbuffer_chain
+ */
 static struct evbuffer_chain *
 evbuffer_chain_new(size_t size)
 {
@@ -163,6 +166,7 @@ evbuffer_chain_new(size_t size)
 	size += EVBUFFER_CHAIN_SIZE;
 
 	/* get the next largest memory that can hold the buffer */
+    /*计算需要分配的内存大小*/
 	if (size < EVBUFFER_CHAIN_MAX / 2) {
 		to_alloc = MIN_BUFFER_SIZE;
 		while (to_alloc < size) {
@@ -178,16 +182,19 @@ evbuffer_chain_new(size_t size)
 
 	memset(chain, 0, EVBUFFER_CHAIN_SIZE);
 
-	chain->buffer_len = to_alloc - EVBUFFER_CHAIN_SIZE;
+	chain->buffer_len = to_alloc - EVBUFFER_CHAIN_SIZE;                 //记录缓存区大小
 
 	/* this way we can manipulate the buffer to different addresses,
 	 * which is required for mmap for example.
 	 */
-	chain->buffer = EVBUFFER_CHAIN_EXTRA(u_char, chain);
+	chain->buffer = EVBUFFER_CHAIN_EXTRA(u_char, chain);                //缓存区起始地址
 
 	return (chain);
 }
 
+/*
+ * 释放一个 evbuffer_chain
+ */
 static inline void
 evbuffer_chain_free(struct evbuffer_chain *chain)
 {
@@ -234,6 +241,9 @@ evbuffer_chain_free(struct evbuffer_chain *chain)
 	mm_free(chain);
 }
 
+/*
+ * 释放所有 evbuffer_chain
+ */
 static void
 evbuffer_free_all_chains(struct evbuffer_chain *chain)
 {
@@ -287,6 +297,9 @@ evbuffer_free_trailing_empty_chains(struct evbuffer *buf)
 /* Add a single chain 'chain' to the end of 'buf', freeing trailing empty
  * chains as necessary.  Requires lock.  Does not schedule callbacks.
  */
+/*
+ * 添加一个 evbuffer_chain 至 evbuffer 中
+ */
 static void
 evbuffer_chain_insert(struct evbuffer *buf,
     struct evbuffer_chain *chain)
@@ -318,6 +331,9 @@ evbuffer_chain_insert(struct evbuffer *buf,
 	buf->total_len += chain->off;
 }
 
+/*
+ * 添加一个指定大小为 datlen 的evbuffer_chain 至 evbuffer 中
+ */
 static inline struct evbuffer_chain *
 evbuffer_chain_insert_new(struct evbuffer *buf, size_t datlen)
 {
@@ -328,6 +344,9 @@ evbuffer_chain_insert_new(struct evbuffer *buf, size_t datlen)
 	return chain;
 }
 
+/*
+ * 添加一个 pin 标志
+ */
 void
 _evbuffer_chain_pin(struct evbuffer_chain *chain, unsigned flag)
 {
@@ -335,6 +354,9 @@ _evbuffer_chain_pin(struct evbuffer_chain *chain, unsigned flag)
 	chain->flags |= flag;
 }
 
+/*
+ * 去除 pin 标志
+ */
 void
 _evbuffer_chain_unpin(struct evbuffer_chain *chain, unsigned flag)
 {
@@ -344,6 +366,9 @@ _evbuffer_chain_unpin(struct evbuffer_chain *chain, unsigned flag)
 		evbuffer_chain_free(chain);
 }
 
+/*
+ * 创建一个 evbuffer
+ */
 struct evbuffer *
 evbuffer_new(void)
 {
@@ -360,6 +385,9 @@ evbuffer_new(void)
 	return (buffer);
 }
 
+/*
+ * 设置 evbuffer 的标志
+ */
 int
 evbuffer_set_flags(struct evbuffer *buf, ev_uint64_t flags)
 {
@@ -369,6 +397,9 @@ evbuffer_set_flags(struct evbuffer *buf, ev_uint64_t flags)
 	return 0;
 }
 
+/*
+ * 清楚 evbuffer 的标志
+ */
 int
 evbuffer_clear_flags(struct evbuffer *buf, ev_uint64_t flags)
 {
@@ -378,6 +409,9 @@ evbuffer_clear_flags(struct evbuffer *buf, ev_uint64_t flags)
 	return 0;
 }
 
+/*
+ * 增加引用计数
+ */
 void
 _evbuffer_incref(struct evbuffer *buf)
 {
@@ -386,6 +420,9 @@ _evbuffer_incref(struct evbuffer *buf)
 	EVBUFFER_UNLOCK(buf);
 }
 
+/*
+ * 减少引用计数
+ */
 void
 _evbuffer_incref_and_lock(struct evbuffer *buf)
 {
@@ -393,6 +430,9 @@ _evbuffer_incref_and_lock(struct evbuffer *buf)
 	++buf->refcnt;
 }
 
+/*
+ * 初始化 evbuffer 的延时事件队列
+ */
 int
 evbuffer_defer_callbacks(struct evbuffer *buffer, struct event_base *base)
 {
@@ -429,6 +469,9 @@ evbuffer_enable_locking(struct evbuffer *buf, void *lock)
 #endif
 }
 
+/*
+ * 设置 evbuffer 所属的 bufferevent
+ */
 void
 evbuffer_set_parent(struct evbuffer *buf, struct bufferevent *bev)
 {
@@ -437,6 +480,9 @@ evbuffer_set_parent(struct evbuffer *buf, struct bufferevent *bev)
 	EVBUFFER_UNLOCK(buf);
 }
 
+/*
+ * 执行回调
+ */
 static void
 evbuffer_run_callbacks(struct evbuffer *buffer, int running_deferred)
 {

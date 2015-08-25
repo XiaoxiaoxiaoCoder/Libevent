@@ -67,30 +67,40 @@ struct event_watermark {
   should really not rely on the layout, size, or contents of this structure:
   it is fairly volatile, and WILL change in future versions of the code.
 **/
+/*
+ * bufferevent 结构体
+ */
 struct bufferevent {
 	/** Event base for which this bufferevent was created. */
+    /*event_base 指针*/
 	struct event_base *ev_base;
 	/** Pointer to a table of function pointers to set up how this
 	    bufferevent behaves. */
+    /*该bufferevent的行为table指针*/
 	const struct bufferevent_ops *be_ops;
 
 	/** A read event that triggers when a timeout has happened or a socket
 	    is ready to read data.  Only used by some subtypes of
 	    bufferevent. */
+    /*读事件*/
 	struct event ev_read;
 	/** A write event that triggers when a timeout has happened or a socket
 	    is ready to write data.  Only used by some subtypes of
 	    bufferevent. */
+    /*写事件*/
 	struct event ev_write;
 
 	/** An input buffer. Only the bufferevent is allowed to add data to
 	    this buffer, though the user is allowed to drain it. */
+    /*读缓存*/
 	struct evbuffer *input;
 
 	/** An input buffer. Only the bufferevent is allowed to drain data
 	    from this buffer, though the user is allowed to add it. */
+    /*写缓存*/
 	struct evbuffer *output;
 
+    /*读写限制*/
 	struct event_watermark wm_read;
 	struct event_watermark wm_write;
 

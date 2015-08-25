@@ -47,7 +47,7 @@ struct deferred_cb {
     /*以链表形式存储*/
 	TAILQ_ENTRY (deferred_cb) cb_next;
 	/** True iff this deferred_cb is pending in an event_base. */
-    /*是否添加只 event_base 中 */
+    /*是否添加至 event_base 中 */
 	unsigned queued : 1;
 	/** The function to execute when the callback runs. */
     /*回调函数*/
